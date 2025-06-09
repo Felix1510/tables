@@ -7,11 +7,14 @@ body {
 
 .container {
     max-width: 800px;
-    margin: 0 auto;
-    background-color: white;
+    margin: 20px auto;
     padding: 20px;
+    background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: relative;
+    min-height: calc(100vh - 40px);
+    margin-bottom: 190px;
 }
 
 .header {
@@ -192,4 +195,15 @@ input[type="file"] {
     bottom: 0;
     right: 0;
     margin: 20px;
+}
+
+/* Стили для логотипа */
+.logo {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 150px;
+    height: 150px;
+    z-index: 1000;
+    pointer-events: none; /* Чтобы изображение не мешало кликам */
 }

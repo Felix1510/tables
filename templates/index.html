@@ -10,10 +10,10 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Обработка таблиц</h1>
+            <h1>Группа ТМЦ</h1>
             <div class="header-buttons">
-                <button onclick="showDescription()">Описание</button>
-                <button onclick="logout()">Выйти</button>
+                <button onclick="showDescription()" class="btn">Описание</button>
+                <button onclick="logout()" class="btn">Выйти</button>
             </div>
         </div>
         
@@ -53,6 +53,6 @@
     </div>
 
     <script src="/static/script.js"></script>
-     <img src="href=/static/images/inzh.png" alt="" class="inzh-image">
+    <img src="{{ url_for('static', filename='images/inzh.png') }}" alt="Логотип" class="logo">
 </body>
 </html>
