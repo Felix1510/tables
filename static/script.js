@@ -1,18 +1,15 @@
 // Modal functionality
-const modal = document.getElementById('description-modal');
-const closeBtn = document.getElementsByClassName('close')[0];
-
 function showDescription() {
-    modal.style.display = 'block';
+    document.getElementById('description-modal').style.display = 'block';
 }
 
-if (closeBtn) {
-    closeBtn.onclick = function() {
-        modal.style.display = 'none';
-    }
+function closeModal() {
+    document.getElementById('description-modal').style.display = 'none';
 }
 
+// Close modal when clicking outside
 window.onclick = function(event) {
+    const modal = document.getElementById('description-modal');
     if (event.target == modal) {
         modal.style.display = 'none';
     }
