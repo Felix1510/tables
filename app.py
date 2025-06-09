@@ -6,6 +6,7 @@ import threading
 import subprocess
 import logging
 from functools import wraps
+import secrets
 
 # Configure logging
 logging.basicConfig(
@@ -22,7 +23,7 @@ REESTR_FILE = os.path.join(WORKING_DIR, "reestr.xlsx")
 RESULT_FILE = os.path.join(WORKING_DIR, "exit.xlsx")
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # Change this to a secure secret key
+app.secret_key = secrets.token_hex(32)
 
 # Login credentials
 VALID_USERNAME = "User"
