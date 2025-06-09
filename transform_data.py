@@ -6,9 +6,14 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 import logging
 import re
+import subprocess
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    filename='/opt/tables/app.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Configuration
