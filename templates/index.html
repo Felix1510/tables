@@ -22,23 +22,22 @@
         </div>
 
         <div class="upload-section">
-            <div class="upload-box">
+            <div class="file-upload">
                 <label for="sklad-file">Загрузить файл из 1С:</label>
-                <input type="file" id="sklad-file" accept=".xlsx">
-                <button onclick="uploadFile('sklad')">Загрузить</button>
+                <input type="file" id="sklad-file" accept=".xlsx,.xls">
+                <button onclick="uploadFile('sklad')" class="btn">Загрузить</button>
             </div>
-
-            <div class="upload-box">
-                <label for="reestr-file">Загрузить файл из Cynteka:</label>
-                <input type="file" id="reestr-file" accept=".xlsx">
-                <button onclick="uploadFile('reestr')">Загрузить</button>
+            <div class="file-upload">
+                <label for="reestr-file">Загрузить файл из Сynteka:</label>
+                <input type="file" id="reestr-file" accept=".xlsx,.xls">
+                <button onclick="uploadFile('reestr')" class="btn">Загрузить</button>
             </div>
         </div>
 
-        <div class="buttons">
-            <button id="start-btn" onclick="startProcess()">Старт</button>
-            <button id="download-btn" onclick="downloadFile()" disabled>Скачать результат</button>
-            <button onclick="clearFiles()">Удалить временные файлы</button>
+        <div class="process-section">
+            <button onclick="startProcess()" class="btn">Старт</button>
+            <button onclick="downloadFile()" id="download-btn" class="btn" disabled>Скачать результат</button>
+            <button onclick="clearFiles()" class="btn">Очистить файлы</button>
         </div>
     </div>
 

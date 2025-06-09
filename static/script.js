@@ -7,13 +7,23 @@ function closeModal() {
     document.getElementById('description-modal').style.display = 'none';
 }
 
-// Close modal when clicking outside
+// Close modal when clicking outside or on close button
 window.onclick = function(event) {
     const modal = document.getElementById('description-modal');
     if (event.target == modal) {
         modal.style.display = 'none';
     }
 }
+
+// Handle close button click
+document.addEventListener('DOMContentLoaded', function() {
+    const closeBtn = document.querySelector('.close');
+    if (closeBtn) {
+        closeBtn.onclick = function() {
+            document.getElementById('description-modal').style.display = 'none';
+        }
+    }
+});
 
 // Login form handling
 const loginForm = document.getElementById('loginForm');
