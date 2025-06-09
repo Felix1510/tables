@@ -52,10 +52,10 @@ h1 {
 }
 
 .nav-meny {
-    display: flex;
-    justify-content: right;
-    gap: 10px;
     margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: end;
 }
 
 button {
