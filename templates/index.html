@@ -7,7 +7,12 @@
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <div class="container">
+    <div class="container">        
+        <div class="nav-meny">
+                <button id="info-btn" onclick="">Описание</button>
+                <button id="out-btn" onclick="">Выйти</button>
+            <div id="nav-meny"></div>
+
         <h1>Обработка таблиц</h1>
         
         <div class="status-console">
@@ -16,22 +21,22 @@
 
         <div class="upload-section">
             <div class="upload-box">
-                <label for="sklad-file">Загрузить файл sklad:</label>
+                <label for="sklad-file">Загрузить файл из 1С:</label>
                 <input type="file" id="sklad-file" accept=".xlsx">
                 <button onclick="uploadFile('sklad')">Загрузить</button>
             </div>
 
             <div class="upload-box">
-                <label for="reestr-file">Загрузить файл reestr:</label>
+                <label for="reestr-file">Загрузить файл из Cynteka:</label>
                 <input type="file" id="reestr-file" accept=".xlsx">
                 <button onclick="uploadFile('reestr')">Загрузить</button>
             </div>
         </div>
 
         <div class="buttons">
-            <button id="start-btn" onclick="startProcess()">Start</button>
-            <button id="download-btn" onclick="downloadFile()" disabled>Download</button>
-            <button onclick="clearFiles()">Clear</button>
+            <button id="start-btn" onclick="startProcess()">Старт</button>
+            <button id="download-btn" onclick="downloadFile()" disabled>Скачать результат</button>
+            <button onclick="clearFiles()">Очистить</button>
         </div>
     </div>
     <script src="/static/script.js"></script>

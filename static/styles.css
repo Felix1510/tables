@@ -51,6 +51,13 @@ h1 {
     margin-top: 20px;
 }
 
+.nav-meny {
+    display: flex;
+    justify-content: right;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
 button {
     padding: 10px 20px;
     border: none;
