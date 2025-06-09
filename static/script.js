@@ -1,12 +1,62 @@
-function addStatusMessage(message, type = 'info') {
-    const statusDiv = document.getElementById('status-messages');
-    const messageElement = document.createElement('div');
-    messageElement.className = `status-message ${type}`;
-    messageElement.textContent = message;
-    statusDiv.appendChild(messageElement);
-    statusDiv.scrollTop = statusDiv.scrollHeight;
+// Modal functionality
+const modal = document.getElementById('description-modal');
+const closeBtn = document.getElementsByClassName('close')[0];
+
+function showDescription() {
+    modal.style.display = 'block';
 }
 
+if (closeBtn) {
+    closeBtn.onclick = function() {
+        modal.style.display = 'none';
+    }
+}
+
+window.onclick = function(event) {
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Login form handling
+const loginForm = document.getElementById('loginForm');
+if (loginForm) {
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            if (data.status === 'success') {
+                window.location.href = '/';
+            } else {
+                document.getElementById('login-error').textContent = data.message;
+            }
+        } catch (error) {
+            document.getElementById('login-error').textContent = 'Ошибка при входе';
+        }
+    });
+}
+
+// Logout functionality
+function logout() {
+    fetch('/logout', {
+        method: 'POST'
+    }).then(() => {
+        window.location.href = '/login';
+    });
+}
+
+// File upload functionality
 async function uploadFile(type) {
     const fileInput = document.getElementById(`${type}-file`);
     const file = fileInput.files[0];
@@ -32,6 +82,7 @@ async function uploadFile(type) {
     }
 }
 
+// Process start functionality
 async function startProcess() {
     try {
         const response = await fetch('/start', {
@@ -48,10 +99,12 @@ async function startProcess() {
     }
 }
 
+// File download functionality
 async function downloadFile() {
     window.location.href = '/download';
 }
 
+// Clear files functionality
 async function clearFiles() {
     try {
         const response = await fetch('/clear', {
@@ -65,6 +118,7 @@ async function clearFiles() {
     }
 }
 
+// Check for result file
 async function checkExitFile() {
     const checkInterval = setInterval(async () => {
         try {
@@ -80,4 +134,16 @@ async function checkExitFile() {
             console.error('Error checking files:', error);
         }
     }, 2000);
+}
+
+// Status message functionality
+function addStatusMessage(message, type = 'info') {
+    const statusDiv = document.getElementById('status-messages');
+    if (statusDiv) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `status-message ${type}`;
+        messageElement.textContent = message;
+        statusDiv.appendChild(messageElement);
+        statusDiv.scrollTop = statusDiv.scrollHeight;
+    }
 }

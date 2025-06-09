@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, send_file, jsonify, session, redirect, url_for
 import os
 import time
 from datetime import datetime, timedelta
 import threading
 import subprocess
 import logging
+from functools import wraps
 
 # Configure logging
 logging.basicConfig(
@@ -21,6 +22,19 @@ REESTR_FILE = os.path.join(WORKING_DIR, "reestr.xlsx")
 RESULT_FILE = os.path.join(WORKING_DIR, "exit.xlsx")
 
 app = Flask(__name__)
+app.secret_key = 'your-secret-key-here'  # Change this to a secure secret key
+
+# Login credentials
+VALID_USERNAME = "User"
+VALID_PASSWORD = "P@s7w0rd"
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 def cleanup_old_files():
     while True:
@@ -44,11 +58,32 @@ cleanup_thread.start()
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'xlsx'}
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        if username == VALID_USERNAME and password == VALID_PASSWORD:
+            session['user'] = username
+            return jsonify({'status': 'success'})
+        return jsonify({'status': 'error', 'message': 'Неверный логин или пароль'})
+    
+    return render_template('login.html')
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('user', None)
+    return jsonify({'status': 'success'})
+
 @app.route('/')
+@login_required
 def index():
     return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
+@login_required
 def upload_file():
     if 'file' not in request.files:
         return jsonify({'status': 'error', 'message': 'No file part'})
@@ -76,6 +111,7 @@ def upload_file():
         return jsonify({'status': 'error', 'message': 'Error saving file'})
 
 @app.route('/start', methods=['POST'])
+@login_required
 def start_process():
     if not os.path.exists(SKLAD_FILE):
         return jsonify({'status': 'error', 'message': 'No sklad.xlsx file'})
@@ -91,12 +127,14 @@ def start_process():
         return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/download')
+@login_required
 def download_file():
     if os.path.exists(RESULT_FILE):
         return send_file(RESULT_FILE, as_attachment=True)
     return jsonify({'status': 'error', 'message': 'File not found'})
 
 @app.route('/clear', methods=['POST'])
+@login_required
 def clear_files():
     files = ['sklad.xlsx', 'reestr.xlsx', 'exit.xlsx']
     cleared = []
@@ -115,6 +153,7 @@ def clear_files():
     })
 
 @app.route('/check_files')
+@login_required
 def check_files():
     exit_exists = os.path.exists(RESULT_FILE)
     return jsonify({'exit_exists': exit_exists})
