@@ -25,6 +25,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Общая функция для обработки запросов
+async function handleRequest(url, options = {}) {
+    try {
+        const response = await fetch(url, {
+            ...options,
+            credentials: 'same-origin' // Важно для работы с сессиями
+        });
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                // Если сессия истекла, перенаправляем на страницу входа
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Проверяем тип контента
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json();
+        }
+        return response;
+    } catch (error) {
+        console.error('Request failed:', error);
+        throw error;
+    }
+}
+
 // Login form handling
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
@@ -34,7 +63,7 @@ if (loginForm) {
         const password = document.getElementById('password').value;
 
         try {
-            const response = await fetch('/login', {
+            const data = await handleRequest('/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -42,7 +71,6 @@ if (loginForm) {
                 body: JSON.stringify({ username, password })
             });
 
-            const data = await response.json();
             if (data.status === 'success') {
                 window.location.href = '/';
             } else {
@@ -55,12 +83,16 @@ if (loginForm) {
 }
 
 // Logout functionality
-function logout() {
-    fetch('/logout', {
-        method: 'POST'
-    }).then(() => {
+async function logout() {
+    try {
+        await handleRequest('/logout', {
+            method: 'POST'
+        });
         window.location.href = '/login';
-    });
+    } catch (error) {
+        console.error('Logout error:', error);
+        addStatusMessage('Ошибка при выходе', 'error');
+    }
 }
 
 // File upload functionality
@@ -78,11 +110,10 @@ async function uploadFile(type) {
     formData.append('type', type);
 
     try {
-        const response = await fetch('/upload', {
+        const data = await handleRequest('/upload', {
             method: 'POST',
             body: formData
         });
-        const data = await response.json();
         addStatusMessage(data.message, data.status);
     } catch (error) {
         addStatusMessage('Ошибка при загрузке файла', 'error');
@@ -92,10 +123,12 @@ async function uploadFile(type) {
 // Process start functionality
 async function startProcess() {
     try {
-        const response = await fetch('/start', {
-            method: 'POST'
+        const data = await handleRequest('/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
-        const data = await response.json();
         addStatusMessage(data.message, data.status);
         
         if (data.status === 'success') {
@@ -108,16 +141,53 @@ async function startProcess() {
 
 // File download functionality
 async function downloadFile() {
-    window.location.href = '/download';
+    try {
+        // Сначала проверим существование файла
+        const checkData = await handleRequest('/check_files');
+        
+        if (!checkData.exit_exists) {
+            addStatusMessage('Файл не найден', 'error');
+            return;
+        }
+
+        // Создаем временную ссылку для скачивания
+        const link = document.createElement('a');
+        link.style.display = 'none';
+        document.body.appendChild(link);
+
+        try {
+            const response = await handleRequest('/download');
+            if (!response.ok) {
+                throw new Error('Download failed');
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            link.href = url;
+            link.download = 'result.xlsx';
+            link.click();
+            
+            // Очищаем URL после скачивания
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(link);
+            }, 100);
+        } catch (error) {
+            console.error('Download error:', error);
+            addStatusMessage('Ошибка при скачивании файла', 'error');
+        }
+    } catch (error) {
+        console.error('Download error:', error);
+        addStatusMessage('Ошибка при скачивании файла', 'error');
+    }
 }
 
 // Clear files functionality
 async function clearFiles() {
     try {
-        const response = await fetch('/clear', {
+        const data = await handleRequest('/clear', {
             method: 'POST'
         });
-        const data = await response.json();
         addStatusMessage(data.message, data.status);
         document.getElementById('download-btn').disabled = true;
     } catch (error) {
@@ -127,18 +197,28 @@ async function clearFiles() {
 
 // Check for result file
 async function checkExitFile() {
+    let attempts = 0;
+    const maxAttempts = 30; // 1 минута максимум
+    
     const checkInterval = setInterval(async () => {
         try {
-            const response = await fetch('/check_files');
-            const data = await response.json();
+            const data = await handleRequest('/check_files');
             
             if (data.exit_exists) {
                 document.getElementById('download-btn').disabled = false;
                 addStatusMessage('Преобразование закончено, таблица доступна для скачивания', 'success');
                 clearInterval(checkInterval);
             }
+            
+            attempts++;
+            if (attempts >= maxAttempts) {
+                clearInterval(checkInterval);
+                addStatusMessage('Превышено время ожидания результата', 'error');
+            }
         } catch (error) {
             console.error('Error checking files:', error);
+            clearInterval(checkInterval);
+            addStatusMessage('Ошибка при проверке файлов', 'error');
         }
     }, 2000);
 }

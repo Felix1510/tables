@@ -138,9 +138,23 @@ def start_process():
 @app.route('/download')
 @login_required
 def download_file():
-    if os.path.exists(RESULT_FILE):
-        return send_file(RESULT_FILE, as_attachment=True)
-    return jsonify({'status': 'error', 'message': 'File not found'})
+    try:
+        if os.path.exists(RESULT_FILE):
+            # Добавим заголовки для предотвращения кэширования
+            response = send_file(
+                RESULT_FILE,
+                as_attachment=True,
+                download_name='result.xlsx',
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
+        return jsonify({'status': 'error', 'message': 'File not found'})
+    except Exception as e:
+        logger.error(f"Error downloading file: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/clear', methods=['POST'])
 @login_required
