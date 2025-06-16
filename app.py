@@ -27,6 +27,10 @@ RESULT_FILE = os.path.join(WORKING_DIR, "exit.xlsx")
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Login credentials
 VALID_USERNAME = "User"
@@ -71,6 +75,7 @@ def login():
         
         if username == VALID_USERNAME and password == VALID_PASSWORD:
             session['user'] = username
+            session.permanent = True
             return jsonify({'status': 'success'})
         return jsonify({'status': 'error', 'message': 'Неверный логин или пароль'})
     
