@@ -96,22 +96,29 @@ def load_excel_files():
                 # For sklad, use pattern matching
                 for col in df.columns:
                     col_lower = str(col).lower()
-                    for pattern in expected_patterns:
-                        if pattern in col_lower:
-                            if 'код' in pattern and 'код' in col_lower:
-                                column_mapping[col] = 'Номенклатура.Код'
-                            elif 'наименование' in pattern and 'наименование' in col_lower:
-                                column_mapping[col] = 'Номенклатура.Наименование'
-                            elif 'единица' in pattern and 'единица' in col_lower:
-                                column_mapping[col] = 'Единица'
-                            elif 'организация' in pattern and 'организация' in col_lower:
-                                column_mapping[col] = 'Документ связи.Организация'
-                            elif 'номер' in pattern and 'номер' in col_lower:
-                                column_mapping[col] = 'Регистратор.Номер'
-                            elif 'период' in pattern and 'период' in col_lower:
-                                column_mapping[col] = 'Период, день.Начало дня'
-                            elif 'количество' in pattern and 'количество' in col_lower:
-                                column_mapping[col] = 'Количество Приход'
+                    
+                    # Check each pattern individually
+                    if 'код' in col_lower:
+                        column_mapping[col] = 'Номенклатура.Код'
+                        logger.info(f"Mapped column '{col}' -> 'Номенклатура.Код'")
+                    elif 'наименование' in col_lower:
+                        column_mapping[col] = 'Номенклатура.Наименование'
+                        logger.info(f"Mapped column '{col}' -> 'Номенклатура.Наименование'")
+                    elif 'единица' in col_lower or 'ед.изм' in col_lower or 'ед изм' in col_lower:
+                        column_mapping[col] = 'Единица'
+                        logger.info(f"Mapped column '{col}' -> 'Единица'")
+                    elif 'организация' in col_lower:
+                        column_mapping[col] = 'Документ связи.Организация'
+                        logger.info(f"Mapped column '{col}' -> 'Документ связи.Организация'")
+                    elif 'номер' in col_lower and ('документ' in col_lower or 'регистр' in col_lower):
+                        column_mapping[col] = 'Регистратор.Номер'
+                        logger.info(f"Mapped column '{col}' -> 'Регистратор.Номер'")
+                    elif 'период' in col_lower or 'дата' in col_lower:
+                        column_mapping[col] = 'Период, день.Начало дня'
+                        logger.info(f"Mapped column '{col}' -> 'Период, день.Начало дня'")
+                    elif 'количество' in col_lower or 'кол-во' in col_lower or 'приход' in col_lower:
+                        column_mapping[col] = 'Количество Приход'
+                        logger.info(f"Mapped column '{col}' -> 'Количество Приход'")
             return column_mapping
         
         # Map columns for both dataframes
@@ -122,6 +129,31 @@ def load_excel_files():
         logger.info(sklad_mapping)
         logger.info("Detected column mappings for reestr.xlsx:")
         logger.info(reestr_mapping)
+        
+        # Additional debugging: log all original column names
+        logger.info("Original sklad.xlsx column names:")
+        for i, col in enumerate(sklad_df.columns):
+            logger.info(f"  Column {i}: '{col}'")
+        
+        logger.info("Original reestr.xlsx column names:")  
+        for i, col in enumerate(reestr_df.columns):
+            logger.info(f"  Column {i}: '{col}'")
+        
+        # Check if we found any mappings for sklad
+        if not sklad_mapping:
+            logger.warning("Не найдено автоматического маппинга для sklad.xlsx! Попробуем резервную логику.")
+            # Fallback: try to map by column position if we know the structure
+            if len(sklad_df.columns) >= 7:
+                sklad_mapping = {
+                    sklad_df.columns[0]: 'Номенклатура.Код',
+                    sklad_df.columns[1]: 'Номенклатура.Наименование', 
+                    sklad_df.columns[2]: 'Единица',
+                    sklad_df.columns[3]: 'Документ связи.Организация',
+                    sklad_df.columns[4]: 'Регистратор.Номер',
+                    sklad_df.columns[5]: 'Период, день.Начало дня',
+                    sklad_df.columns[6]: 'Количество Приход'
+                }
+                logger.info("Применена резервная логика маппинга по позициям колонок.")
         
         # Rename columns
         sklad_df = sklad_df.rename(columns=sklad_mapping)
@@ -264,7 +296,15 @@ def create_result_dataframe(sklad_df, reestr_df):
         # Log first row data for debugging
         if idx == 0:
             logger.info(f"First row from sklad: {result_row}")
+            logger.info(f"Available sklad columns: {list(row.index)}")
+            logger.info(f"Sample row data: {dict(row)}")
             logger.info(f"Looking for match in reestr for: {result_row['предмет']}")
+            
+            # Check if key columns are empty
+            if not result_row['предмет']:
+                logger.warning("ВНИМАНИЕ: Колонка 'предмет' пустая! Проверьте маппинг колонок.")
+            if not result_row['код']:
+                logger.warning("ВНИМАНИЕ: Колонка 'код' пустая! Проверьте маппинг колонок.")
         
         # Step 3: Find matching row in reestr_df
         match_level = 0
