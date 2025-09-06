@@ -34,6 +34,11 @@ document.addEventListener('DOMContentLoaded', function() {
         addStatusMessage('Система готова к работе', 'info');
         // Обновляем индикаторы файлов при загрузке страницы
         updateFileIndicators();
+        
+        // Периодически обновляем индикаторы каждые 10 секунд
+        setInterval(() => {
+            updateFileIndicators();
+        }, 10000);
     }
 });
 
@@ -63,33 +68,67 @@ async function handleRequest(url, options = {}, retries = 2) {
         }
         
         // Проверяем тип контента
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-            const jsonData = await response.json();
-            // Проверяем, что JSON содержит ожидаемые поля
-            if (jsonData && typeof jsonData === 'object') {
-                return jsonData;
-            } else {
-                console.error('Invalid JSON response:', jsonData);
-                return { status: 'error', message: 'Получен некорректный ответ от сервера' };
+        const contentType = response.headers.get('content-type') || '';
+        console.log(`Response content-type: ${contentType}, URL: ${url}`);
+        
+        if (contentType.includes('application/json')) {
+            try {
+                const jsonData = await response.json();
+                // Проверяем, что JSON содержит ожидаемые поля
+                if (jsonData && typeof jsonData === 'object') {
+                    return jsonData;
+                } else {
+                    console.error('Invalid JSON response:', jsonData);
+                    return { status: 'error', message: 'Получен некорректный ответ от сервера' };
+                }
+            } catch (jsonError) {
+                console.error('JSON parse error:', jsonError);
+                return { status: 'error', message: 'Ошибка парсинга JSON ответа' };
             }
-        } else {
-            // Проверяем, это файл или другой тип ответа
-            const contentType = response.headers.get('content-type') || '';
+        } else if (contentType.includes('text/html')) {
+            // HTML ответ - возможно редирект на страницу логина
+            const htmlText = await response.text();
+            console.warn('Received HTML response, possible redirect to login:', htmlText.substring(0, 200));
             
-            if (contentType.includes('application/vnd.openxmlformats') || 
-                contentType.includes('application/octet-stream') ||
-                contentType.includes('application/excel')) {
-                // Это файл - возвращаем сам response для обработки как файл
-                console.log('File response detected, returning response object');
-                return response;
+            if (htmlText.includes('login') || htmlText.includes('авторизация')) {
+                addStatusMessage('Сессия истекла, требуется повторная авторизация', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+                return { status: 'error', message: 'Сессия истекла' };
             } else {
-                // Пытаемся получить текст ответа для диагностики
-                const textResponse = await response.text();
-                console.error('Non-JSON response received:', textResponse);
                 return { 
                     status: 'error', 
-                    message: `Сервер вернул не-JSON ответ: ${response.status} ${response.statusText}` 
+                    message: `Сервер вернул HTML вместо JSON: ${response.status}` 
+                };
+            }
+        } else if (contentType.includes('application/vnd.openxmlformats') || 
+                   contentType.includes('application/octet-stream') ||
+                   contentType.includes('application/excel')) {
+            // Это файл - возвращаем сам response для обработки как файл
+            console.log('File response detected, returning response object');
+            return response;
+        } else {
+            // Неожиданный тип контента
+            try {
+                const textResponse = await response.text();
+                console.error('Unexpected content-type:', contentType, 'Response:', textResponse.substring(0, 200));
+                
+                // Пытаемся распарсить как JSON на случай, если content-type неправильный
+                try {
+                    const jsonData = JSON.parse(textResponse);
+                    console.log('Successfully parsed as JSON despite wrong content-type');
+                    return jsonData;
+                } catch (parseError) {
+                    return { 
+                        status: 'error', 
+                        message: `Неизвестный тип ответа: ${contentType || 'не указан'}` 
+                    };
+                }
+            } catch (textError) {
+                return { 
+                    status: 'error', 
+                    message: `Ошибка чтения ответа сервера: ${textError.message}` 
                 };
             }
         }
@@ -276,71 +315,124 @@ async function startProcess() {
 // File download functionality
 async function downloadFile() {
     try {
-        // Сначала проверим существование файла
-        const checkData = await handleRequest('/check_files');
+        addStatusMessage('Проверяем наличие файла...', 'info');
         
-        if (!checkData.exit_exists) {
-            addStatusMessage('Файл не найден', 'error');
+        // Сначала проверяем, что файл существует с повторными попытками
+        let fileExists = false;
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (!fileExists && attempts < maxAttempts) {
+            attempts++;
+            console.log(`Checking file existence, attempt ${attempts}/${maxAttempts}`);
+            
+            const checkData = await handleRequest('/check_files');
+            console.log('File check result:', checkData);
+            
+            if (checkData && checkData.exit_exists === true) {
+                fileExists = true;
+                console.log('File confirmed to exist');
+                break;
+            } else if (checkData && checkData.status === 'error') {
+                addStatusMessage(`Ошибка проверки файла: ${checkData.message}`, 'error');
+                return;
+            } else {
+                console.log(`File not found on attempt ${attempts}, waiting...`);
+                if (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+        }
+        
+        if (!fileExists) {
+            addStatusMessage('Файл не найден на сервере', 'error');
+            // Обновляем индикаторы
+            updateFileIndicators();
             return;
         }
-
+        
         addStatusMessage('Начинаем скачивание файла...', 'info');
-
-        // Используем прямой fetch для загрузки файла (не через handleRequest)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-        try {
-            const response = await fetch('/download', {
-                credentials: 'same-origin',
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                if (response.headers.get('content-type')?.includes('application/json')) {
-                    // Если сервер вернул JSON ошибку
-                    const errorData = await response.json();
-                    addStatusMessage(errorData.message || 'Ошибка при скачивании файла', 'error');
-                } else {
-                    addStatusMessage(`Ошибка сервера: ${response.status} ${response.statusText}`, 'error');
+        
+        // Используем прямой fetch для скачивания файла с повторными попытками
+        let downloadSuccess = false;
+        let downloadAttempts = 0;
+        const maxDownloadAttempts = 3;
+        
+        while (!downloadSuccess && downloadAttempts < maxDownloadAttempts) {
+            downloadAttempts++;
+            console.log(`Download attempt ${downloadAttempts}/${maxDownloadAttempts}`);
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+            
+            try {
+                const response = await fetch('/download', {
+                    credentials: 'same-origin',
+                    signal: controller.signal,
+                    cache: 'no-cache', // Отключаем кэширование
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || 'Ошибка при скачивании файла');
+                    } else {
+                        throw new Error(`Ошибка сервера: ${response.status} ${response.statusText}`);
+                    }
                 }
-                return;
-            }
-
-            // Создаем временную ссылку для скачивания
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            
-            const link = document.createElement('a');
-            link.style.display = 'none';
-            link.href = url;
-            link.download = 'result.xlsx';
-            document.body.appendChild(link);
-            link.click();
-            
-            // Очищаем URL после скачивания
-            setTimeout(() => {
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(link);
-            }, 100);
-
-            addStatusMessage('Файл успешно скачан', 'success');
-
-        } catch (error) {
-            clearTimeout(timeoutId);
-            console.error('Download error:', error);
-            
-            if (error.name === 'AbortError') {
-                addStatusMessage('Скачивание прервано по таймауту', 'error');
-            } else {
-                addStatusMessage('Ошибка при скачивании файла: ' + error.message, 'error');
+                
+                // Создаем blob и скачиваем файл
+                const blob = await response.blob();
+                if (blob.size === 0) {
+                    throw new Error('Получен пустой файл');
+                }
+                
+                console.log(`Downloaded blob size: ${blob.size} bytes`);
+                
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.style.display = 'none';
+                link.href = url;
+                link.download = 'result.xlsx';
+                document.body.appendChild(link);
+                link.click();
+                
+                // Очищаем ресурсы
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(link);
+                }, 100);
+                
+                addStatusMessage('Файл успешно скачан', 'success');
+                downloadSuccess = true;
+                
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error(`Download attempt ${downloadAttempts} failed:`, error);
+                
+                if (downloadAttempts >= maxDownloadAttempts) {
+                    if (error.name === 'AbortError') {
+                        addStatusMessage('Скачивание прервано по таймауту', 'error');
+                    } else {
+                        addStatusMessage('Ошибка при скачивании файла: ' + error.message, 'error');
+                    }
+                } else {
+                    addStatusMessage(`Повторяем скачивание... (попытка ${downloadAttempts + 1}/${maxDownloadAttempts})`, 'warning');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
             }
         }
+        
     } catch (error) {
-        console.error('Download error:', error);
-        addStatusMessage('Ошибка при проверке файла', 'error');
+        console.error('Download function error:', error);
+        addStatusMessage('Ошибка при скачивании: ' + error.message, 'error');
     }
 }
 
@@ -434,21 +526,35 @@ async function checkExitFile() {
 // File indicators functionality
 async function updateFileIndicators() {
     try {
+        console.log('Updating file indicators...');
         const data = await handleRequest('/check_files');
         
-        // Обновляем индикаторы
-        updateIndicator('sklad-indicator', data.sklad_exists);
-        updateIndicator('reestr-indicator', data.reestr_exists);
-        updateIndicator('result-indicator', data.exit_exists);
+        console.log('File check response:', data);
         
-        // Обновляем состояние кнопки скачивания
-        const downloadBtn = document.getElementById('download-btn');
-        if (downloadBtn) {
-            downloadBtn.disabled = !data.exit_exists;
+        // Проверяем, что получили корректный ответ
+        if (data && typeof data === 'object' && !data.status) {
+            // Обновляем индикаторы
+            updateIndicator('sklad-indicator', data.sklad_exists === true);
+            updateIndicator('reestr-indicator', data.reestr_exists === true);
+            updateIndicator('result-indicator', data.exit_exists === true);
+            
+            // Обновляем состояние кнопки скачивания
+            const downloadBtn = document.getElementById('download-btn');
+            if (downloadBtn) {
+                downloadBtn.disabled = !(data.exit_exists === true);
+            }
+            
+            console.log(`Indicators updated: sklad=${data.sklad_exists}, reestr=${data.reestr_exists}, result=${data.exit_exists}`);
+        } else if (data && data.status === 'error') {
+            console.warn('Error in check_files response:', data.message);
+            // При ошибке оставляем индикаторы в текущем состоянии
+        } else {
+            console.warn('Unexpected response from check_files:', data);
         }
         
     } catch (error) {
         console.error('Error updating file indicators:', error);
+        // При ошибке не показываем сообщение пользователю, чтобы не спамить
     }
 }
 

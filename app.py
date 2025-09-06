@@ -131,9 +131,13 @@ def upload_file():
 @login_required
 def start_process():
     if not os.path.exists(SKLAD_FILE):
-        return jsonify({'status': 'error', 'message': 'No sklad.xlsx file'})
+        response = jsonify({'status': 'error', 'message': 'Файл sklad.xlsx не найден'})
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response
     if not os.path.exists(REESTR_FILE):
-        return jsonify({'status': 'error', 'message': 'No reestr.xlsx file'})
+        response = jsonify({'status': 'error', 'message': 'Файл reestr.xlsx не найден'})
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response
     
     try:
         # Определяем команду Python в зависимости от ОС
@@ -146,10 +150,15 @@ def start_process():
                                  stdout=subprocess.PIPE, 
                                  stderr=subprocess.PIPE)
         logger.info(f"Started process with PID: {process.pid}")
-        return jsonify({'status': 'success', 'message': 'Processing started'})
+        
+        response = jsonify({'status': 'success', 'message': 'Processing started'})
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response
     except Exception as e:
         logger.error(f"Error starting process: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)})
+        response = jsonify({'status': 'error', 'message': f'Ошибка запуска процесса: {str(e)}'})
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response
 
 @app.route('/download')
 @login_required
@@ -236,7 +245,7 @@ def check_files():
                     logger.error(f"Error getting info for {file_name}: {e}")
         
         logger.info(f"File check: sklad={sklad_exists}, reestr={reestr_exists}, exit={exit_exists}")
-        logger.info(f"File info: {file_info}")
+        logger.debug(f"File info: {file_info}")
         
         result = {
             'exit_exists': exit_exists,
@@ -246,10 +255,25 @@ def check_files():
             **file_info
         }
         
-        return jsonify(result)
+        # Устанавливаем правильный content-type
+        response = jsonify(result)
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
     except Exception as e:
         logger.error(f"Error in check_files: {str(e)}")
-        return jsonify({'error': str(e)})
+        error_response = jsonify({
+            'status': 'error', 
+            'message': f'Ошибка проверки файлов: {str(e)}',
+            'exit_exists': False,
+            'sklad_exists': False,
+            'reestr_exists': False
+        })
+        error_response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return error_response
 
 @app.route('/get_logs')
 @login_required
