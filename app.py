@@ -27,9 +27,9 @@ RESULT_FILE = os.path.join(WORKING_DIR, "exit.xlsx")
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
-app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SECURE'] = False  # Отключено для локальной разработки
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # Сессия на 30 дней
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Login credentials
@@ -85,6 +85,14 @@ def login():
 def logout():
     session.pop('user', None)
     return jsonify({'status': 'success'})
+
+@app.route('/check_auth')
+def check_auth():
+    """Проверить статус авторизации пользователя"""
+    if 'user' in session:
+        return jsonify({'authenticated': True, 'user': session['user']})
+    else:
+        return jsonify({'authenticated': False})
 
 @app.route('/')
 @login_required

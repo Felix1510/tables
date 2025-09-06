@@ -111,9 +111,28 @@ h1 {
     border-radius: 4px;
     padding: 10px;
     margin: 20px 0;
-    min-height: 100px;
-    max-height: 200px;
+    height: 200px;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+.status-console::-webkit-scrollbar {
+    width: 8px;
+}
+
+.status-console::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.status-console::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.status-console::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 
 .upload-section {
@@ -185,6 +204,26 @@ input[type="file"] {
 .status-message.success {
     background-color: #e6ffe6;
     color: #28a745;
+}
+
+.status-message.info {
+    background-color: #e6f3ff;
+    color: #0066cc;
+}
+
+.status-message.warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.message-time {
+    font-weight: bold;
+    opacity: 0.7;
+    font-size: 0.9em;
+}
+
+.message-text {
+    font-weight: normal;
 }
 
 .inzh-image {

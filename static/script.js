@@ -23,6 +23,16 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('description-modal').style.display = 'none';
         }
     }
+    
+    // Проверяем авторизацию при загрузке главной страницы
+    if (window.location.pathname === '/' || window.location.pathname === '') {
+        checkAuthStatus();
+    }
+    
+    // Добавляем приветственное сообщение при загрузке страницы (только для главной страницы)
+    if (window.location.pathname === '/' || window.location.pathname === '') {
+        addStatusMessage('Система готова к работе', 'info');
+    }
 });
 
 // Общая функция для обработки запросов
@@ -35,8 +45,12 @@ async function handleRequest(url, options = {}) {
         
         if (!response.ok) {
             if (response.status === 401) {
-                // Если сессия истекла, перенаправляем на страницу входа
-                window.location.href = '/login';
+                // Если сессия истекла, показываем сообщение и перенаправляем на страницу входа
+                console.log('Сессия истекла, требуется повторная авторизация');
+                addStatusMessage('Сессия истекла, требуется повторная авторизация', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
                 return;
             }
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -45,12 +59,38 @@ async function handleRequest(url, options = {}) {
         // Проверяем тип контента
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
-            return await response.json();
+            const jsonData = await response.json();
+            // Проверяем, что JSON содержит ожидаемые поля
+            if (jsonData && typeof jsonData === 'object') {
+                return jsonData;
+            } else {
+                console.error('Invalid JSON response:', jsonData);
+                return { status: 'error', message: 'Получен некорректный ответ от сервера' };
+            }
         }
         return response;
     } catch (error) {
         console.error('Request failed:', error);
         throw error;
+    }
+}
+
+// Check if already logged in on login page
+if (window.location.pathname === '/login') {
+    checkAuthStatusForLogin();
+}
+
+// Check authentication status for login page
+async function checkAuthStatusForLogin() {
+    try {
+        const data = await handleRequest('/check_auth');
+        if (data.authenticated) {
+            // Если уже авторизован, перенаправляем на главную страницу
+            console.log('Пользователь уже авторизован, перенаправление на главную');
+            window.location.href = '/';
+        }
+    } catch (error) {
+        console.log('Пользователь не авторизован, остаемся на странице входа');
     }
 }
 
@@ -82,16 +122,42 @@ if (loginForm) {
     });
 }
 
+// Check authentication status
+async function checkAuthStatus() {
+    try {
+        const data = await handleRequest('/check_auth');
+        if (!data.authenticated) {
+            // Если не авторизован, перенаправляем на страницу входа
+            window.location.href = '/login';
+        } else {
+            // Если авторизован, можно добавить приветствие с именем пользователя
+            console.log('Пользователь авторизован:', data.user);
+        }
+    } catch (error) {
+        console.error('Auth check error:', error);
+        // В случае ошибки проверки, перенаправляем на страницу входа
+        window.location.href = '/login';
+    }
+}
+
 // Logout functionality
 async function logout() {
     try {
         await handleRequest('/logout', {
             method: 'POST'
         });
-        window.location.href = '/login';
+        addStatusMessage('Выход выполнен успешно', 'info');
+        // Небольшая задержка перед перенаправлением для показа сообщения
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 1000);
     } catch (error) {
         console.error('Logout error:', error);
         addStatusMessage('Ошибка при выходе', 'error');
+        // Даже при ошибке перенаправляем на страницу входа
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 2000);
     }
 }
 
@@ -114,7 +180,11 @@ async function uploadFile(type) {
             method: 'POST',
             body: formData
         });
-        addStatusMessage(data.message, data.status);
+        if (data && data.message) {
+            addStatusMessage(data.message, data.status);
+        } else {
+            addStatusMessage('Получен пустой ответ от сервера при загрузке файла', 'error');
+        }
     } catch (error) {
         addStatusMessage('Ошибка при загрузке файла', 'error');
     }
@@ -129,9 +199,13 @@ async function startProcess() {
                 'Content-Type': 'application/json'
             }
         });
-        addStatusMessage(data.message, data.status);
+        if (data && data.message) {
+            addStatusMessage(data.message, data.status);
+        } else {
+            addStatusMessage('Получен пустой ответ от сервера при запуске процесса', 'error');
+        }
         
-        if (data.status === 'success') {
+        if (data && data.status === 'success') {
             checkExitFile();
         }
     } catch (error) {
@@ -188,7 +262,11 @@ async function clearFiles() {
         const data = await handleRequest('/clear', {
             method: 'POST'
         });
-        addStatusMessage(data.message, data.status);
+        if (data && data.message) {
+            addStatusMessage(data.message, data.status);
+        } else {
+            addStatusMessage('Получен пустой ответ от сервера при очистке файлов', 'error');
+        }
         document.getElementById('download-btn').disabled = true;
     } catch (error) {
         addStatusMessage('Ошибка при очистке файлов', 'error');
@@ -225,12 +303,49 @@ async function checkExitFile() {
 
 // Status message functionality
 function addStatusMessage(message, type = 'info') {
+    // Проверяем, что сообщение не пустое
+    if (!message || message.trim() === '') {
+        message = 'Получено пустое сообщение';
+        type = 'error';
+    }
+    
     const statusDiv = document.getElementById('status-messages');
     if (statusDiv) {
+        // Создаем элемент сообщения
         const messageElement = document.createElement('div');
         messageElement.className = `status-message ${type}`;
-        messageElement.textContent = message;
-        statusDiv.appendChild(messageElement);
-        statusDiv.scrollTop = statusDiv.scrollHeight;
+        
+        // Получаем текущее время без даты
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('ru-RU', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+        
+        // Создаем содержимое с временной меткой
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'message-time';
+        timeSpan.textContent = `[${timeString}] `;
+        
+        const messageSpan = document.createElement('span');
+        messageSpan.className = 'message-text';
+        messageSpan.textContent = message;
+        
+        messageElement.appendChild(timeSpan);
+        messageElement.appendChild(messageSpan);
+        
+        // Добавляем сообщение в начало списка
+        if (statusDiv.firstChild) {
+            statusDiv.insertBefore(messageElement, statusDiv.firstChild);
+        } else {
+            statusDiv.appendChild(messageElement);
+        }
+        
+        // Скроллим к началу (к новому сообщению)
+        statusDiv.scrollTop = 0;
+        
+        // Логируем сообщение в консоль для отладки
+        console.log(`Status message [${type}] ${timeString}: ${message}`);
     }
 }
