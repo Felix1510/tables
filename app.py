@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-WORKING_DIR = "/opt/tables"
+WORKING_DIR = os.path.dirname(os.path.abspath(__file__))  # Текущая директория скрипта
 SKLAD_FILE = os.path.join(WORKING_DIR, "sklad.xlsx")
 REESTR_FILE = os.path.join(WORKING_DIR, "reestr.xlsx")
 RESULT_FILE = os.path.join(WORKING_DIR, "exit.xlsx")
@@ -136,7 +136,15 @@ def start_process():
         return jsonify({'status': 'error', 'message': 'No reestr.xlsx file'})
     
     try:
-        process = subprocess.Popen(['python3', os.path.join(WORKING_DIR, 'transform_data.py')])
+        # Определяем команду Python в зависимости от ОС
+        import sys
+        python_cmd = sys.executable  # Использует тот же Python, что и Flask app
+        script_path = os.path.join(WORKING_DIR, 'transform_data.py')
+        
+        logger.info(f"Starting process: {python_cmd} {script_path}")
+        process = subprocess.Popen([python_cmd, script_path], 
+                                 stdout=subprocess.PIPE, 
+                                 stderr=subprocess.PIPE)
         logger.info(f"Started process with PID: {process.pid}")
         return jsonify({'status': 'success', 'message': 'Processing started'})
     except Exception as e:
@@ -187,7 +195,37 @@ def clear_files():
 @login_required
 def check_files():
     exit_exists = os.path.exists(RESULT_FILE)
-    return jsonify({'exit_exists': exit_exists})
+    
+    # Дополнительная диагностика
+    sklad_exists = os.path.exists(SKLAD_FILE)
+    reestr_exists = os.path.exists(REESTR_FILE)
+    
+    logger.info(f"File check: sklad={sklad_exists}, reestr={reestr_exists}, exit={exit_exists}")
+    
+    return jsonify({
+        'exit_exists': exit_exists,
+        'sklad_exists': sklad_exists,
+        'reestr_exists': reestr_exists,
+        'working_dir': WORKING_DIR
+    })
+
+@app.route('/get_logs')
+@login_required
+def get_logs():
+    """Получить последние строки из лога для отладки"""
+    try:
+        log_file = os.path.join(WORKING_DIR, 'app.log')
+        if os.path.exists(log_file):
+            with open(log_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                # Возвращаем последние 50 строк
+                recent_lines = lines[-50:] if len(lines) > 50 else lines
+                return jsonify({'logs': recent_lines})
+        else:
+            return jsonify({'logs': ['Файл логов не найден']})
+    except Exception as e:
+        logger.error(f"Error reading logs: {str(e)}")
+        return jsonify({'logs': [f'Ошибка чтения логов: {str(e)}']})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

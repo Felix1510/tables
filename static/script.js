@@ -273,30 +273,66 @@ async function clearFiles() {
     }
 }
 
+// Show logs functionality
+async function showLogs() {
+    try {
+        const data = await handleRequest('/get_logs');
+        if (data && data.logs) {
+            addStatusMessage('=== ПОСЛЕДНИЕ ЗАПИСИ ЛОГОВ ===', 'info');
+            data.logs.forEach(line => {
+                if (line.trim()) {
+                    const logType = line.includes('ERROR') ? 'error' : 
+                                   line.includes('WARNING') ? 'warning' : 'info';
+                    addStatusMessage(line.trim(), logType);
+                }
+            });
+            addStatusMessage('=== КОНЕЦ ЛОГОВ ===', 'info');
+        } else {
+            addStatusMessage('Логи не найдены', 'warning');
+        }
+    } catch (error) {
+        addStatusMessage('Ошибка при получении логов: ' + error.message, 'error');
+    }
+}
+
 // Check for result file
 async function checkExitFile() {
     let attempts = 0;
-    const maxAttempts = 30; // 1 минута максимум
+    const maxAttempts = 60; // 2 минуты максимум (увеличено время)
     
     const checkInterval = setInterval(async () => {
         try {
             const data = await handleRequest('/check_files');
             
+            // Добавим отладочную информацию
+            console.log(`Проверка файлов (попытка ${attempts + 1}/${maxAttempts}):`, data);
+            
             if (data.exit_exists) {
                 document.getElementById('download-btn').disabled = false;
                 addStatusMessage('Преобразование закончено, таблица доступна для скачивания', 'success');
                 clearInterval(checkInterval);
+                return;
+            }
+            
+            // Показываем прогресс каждые 10 попыток
+            if (attempts % 10 === 0 && attempts > 0) {
+                addStatusMessage(`Обработка файлов... (${attempts * 2} секунд)`, 'info');
             }
             
             attempts++;
             if (attempts >= maxAttempts) {
                 clearInterval(checkInterval);
-                addStatusMessage('Превышено время ожидания результата', 'error');
+                addStatusMessage(`Превышено время ожидания результата. Проверьте логи. Рабочая директория: ${data.working_dir || 'неизвестно'}`, 'error');
+                
+                // Показываем дополнительную диагностическую информацию
+                if (data.sklad_exists === false || data.reestr_exists === false) {
+                    addStatusMessage('Входные файлы не найдены! Проверьте загрузку файлов.', 'error');
+                }
             }
         } catch (error) {
             console.error('Error checking files:', error);
             clearInterval(checkInterval);
-            addStatusMessage('Ошибка при проверке файлов', 'error');
+            addStatusMessage('Ошибка при проверке файлов: ' + error.message, 'error');
         }
     }, 2000);
 }

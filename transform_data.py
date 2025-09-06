@@ -8,16 +8,17 @@ import logging
 import re
 import subprocess
 
+# Configuration
+WORKING_DIR = os.path.dirname(os.path.abspath(__file__))  # Текущая директория скрипта
+
 # Configure logging
 logging.basicConfig(
-    filename='/opt/tables/app.log',
+    filename=os.path.join(WORKING_DIR, 'app.log'),
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Configuration
-WORKING_DIR = "/opt/tables"
 SKLAD_FILE = os.path.join(WORKING_DIR, "sklad.xlsx")
 REESTR_FILE = os.path.join(WORKING_DIR, "reestr.xlsx")
 RESULT_FILE = os.path.join(WORKING_DIR, "exit.xlsx")
