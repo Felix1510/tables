@@ -34,6 +34,30 @@
             </div>
         </div>
 
+        <div class="file-status-section">
+            <h3>Файлы на сервере</h3>
+            <div class="status-indicators">
+                <div class="status-indicator">
+                    <div class="toggle-switch" id="sklad-indicator">
+                        <div class="toggle-slider"></div>
+                    </div>
+                    <label>Файл из 1С</label>
+                </div>
+                <div class="status-indicator">
+                    <div class="toggle-switch" id="reestr-indicator">
+                        <div class="toggle-slider"></div>
+                    </div>
+                    <label>Файл из Synteka</label>
+                </div>
+                <div class="status-indicator">
+                    <div class="toggle-switch" id="result-indicator">
+                        <div class="toggle-slider"></div>
+                    </div>
+                    <label>Файл результат</label>
+                </div>
+            </div>
+        </div>
+
         <div class="process-section">
             <button onclick="startProcess()" class="btn">Старт</button>
             <button onclick="downloadFile()" id="download-btn" class="btn" disabled>Скачать результат</button>
@@ -41,6 +65,9 @@
             <button onclick="showLogs()" class="btn">Показать логи</button>
         </div>
     </div>
+
+    <!-- Logo image in bottom right corner -->
+    <img src="/static/images/inzh.png" alt="Logo" class="logo-image">
 
     <!-- Modal for description -->
     <div id="description-modal" class="modal">

@@ -32,6 +32,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Добавляем приветственное сообщение при загрузке страницы (только для главной страницы)
     if (window.location.pathname === '/' || window.location.pathname === '') {
         addStatusMessage('Система готова к работе', 'info');
+        // Обновляем индикаторы файлов при загрузке страницы
+        updateFileIndicators();
     }
 });
 
@@ -152,6 +154,12 @@ if (loginForm) {
             });
 
             if (data.status === 'success') {
+                // Очищаем файлы при входе в систему для чистого старта
+                try {
+                    await handleRequest('/clear', { method: 'POST' });
+                } catch (clearError) {
+                    console.log('Warning: Could not clear files on login:', clearError);
+                }
                 window.location.href = '/';
             } else {
                 document.getElementById('login-error').textContent = data.message;
@@ -183,10 +191,14 @@ async function checkAuthStatus() {
 // Logout functionality
 async function logout() {
     try {
-        await handleRequest('/logout', {
-            method: 'POST'
-        });
+        // Сначала очищаем файлы
+        addStatusMessage('Очистка файлов перед выходом...', 'info');
+        await handleRequest('/clear', { method: 'POST' });
+        
+        // Затем выходим из системы
+        await handleRequest('/logout', { method: 'POST' });
         addStatusMessage('Выход выполнен успешно', 'info');
+        
         // Небольшая задержка перед перенаправлением для показа сообщения
         setTimeout(() => {
             window.location.href = '/login';
@@ -222,6 +234,10 @@ async function uploadFile(type) {
         });
         if (data && data.message) {
             addStatusMessage(data.message, data.status);
+            // Обновляем индикаторы после загрузки файла
+            if (data.status === 'success') {
+                updateFileIndicators();
+            }
         } else if (data && data.status === 'error') {
             addStatusMessage(data.message || 'Ошибка при загрузке файла', 'error');
         } else {
@@ -336,6 +352,8 @@ async function clearFiles() {
         });
         if (data && data.message) {
             addStatusMessage(data.message, data.status);
+            // Обновляем индикаторы после очистки файлов
+            updateFileIndicators();
         } else if (data && data.status === 'error') {
             addStatusMessage(data.message || 'Ошибка при очистке файлов', 'error');
         } else {
@@ -384,6 +402,8 @@ async function checkExitFile() {
             if (data.exit_exists) {
                 document.getElementById('download-btn').disabled = false;
                 addStatusMessage('Преобразование закончено, таблица доступна для скачивания', 'success');
+                // Обновляем индикаторы после завершения обработки
+                updateFileIndicators();
                 clearInterval(checkInterval);
                 return;
             }
@@ -409,6 +429,38 @@ async function checkExitFile() {
             addStatusMessage('Ошибка при проверке файлов: ' + error.message, 'error');
         }
     }, 2000);
+}
+
+// File indicators functionality
+async function updateFileIndicators() {
+    try {
+        const data = await handleRequest('/check_files');
+        
+        // Обновляем индикаторы
+        updateIndicator('sklad-indicator', data.sklad_exists);
+        updateIndicator('reestr-indicator', data.reestr_exists);
+        updateIndicator('result-indicator', data.exit_exists);
+        
+        // Обновляем состояние кнопки скачивания
+        const downloadBtn = document.getElementById('download-btn');
+        if (downloadBtn) {
+            downloadBtn.disabled = !data.exit_exists;
+        }
+        
+    } catch (error) {
+        console.error('Error updating file indicators:', error);
+    }
+}
+
+function updateIndicator(indicatorId, isActive) {
+    const indicator = document.getElementById(indicatorId);
+    if (indicator) {
+        if (isActive) {
+            indicator.classList.add('active');
+        } else {
+            indicator.classList.remove('active');
+        }
+    }
 }
 
 // Status message functionality

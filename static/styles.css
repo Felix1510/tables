@@ -235,6 +235,72 @@ input[type="file"] {
     margin: 20px;
 }
 
+/* File status section */
+.file-status-section {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.file-status-section h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.1em;
+}
+
+.status-indicators {
+    display: flex;
+    justify-content: space-around;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.status-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-indicator label {
+    font-size: 0.9em;
+    color: #666;
+    text-align: center;
+}
+
+/* Toggle switch styles */
+.toggle-switch {
+    position: relative;
+    width: 50px;
+    height: 24px;
+    background-color: #ccc;
+    border-radius: 12px;
+    transition: background-color 0.3s;
+    cursor: default;
+}
+
+.toggle-switch.active {
+    background-color: #4CAF50;
+}
+
+.toggle-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch.active .toggle-slider {
+    transform: translateX(26px);
+}
+
 /* Стили для логотипа */
 .logo {
     position: fixed;
@@ -244,4 +310,15 @@ input[type="file"] {
     height: 150px;
     z-index: 1000;
     pointer-events: none; /* Чтобы изображение не мешало кликам */
+}
+
+.logo-image {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 150px;
+    height: 150px;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0.8;
 }
