@@ -94,30 +94,30 @@ def load_excel_files():
                 for orig_col, new_col in column_mapping.items():
                     logger.info(f"  {orig_col} -> {new_col}")
             else:
-                # For sklad, use pattern matching
+                # For sklad, use specific pattern matching to avoid duplicates
                 for col in df.columns:
-                    col_lower = str(col).lower()
+                    col_lower = str(col).lower().strip()
                     
-                    # Check each pattern individually
-                    if 'код' in col_lower:
+                    # Точное соответствие для избежания дублирования
+                    if col_lower == 'код':
                         column_mapping[col] = 'Номенклатура.Код'
                         logger.info(f"Mapped column '{col}' -> 'Номенклатура.Код'")
-                    elif 'наименование' in col_lower:
+                    elif col_lower == 'предмет' or 'наименование' in col_lower:
                         column_mapping[col] = 'Номенклатура.Наименование'
                         logger.info(f"Mapped column '{col}' -> 'Номенклатура.Наименование'")
-                    elif 'единица' in col_lower or 'ед.изм' in col_lower or 'ед изм' in col_lower:
+                    elif col_lower == 'ед.изм' or col_lower == 'единица':
                         column_mapping[col] = 'Единица'
                         logger.info(f"Mapped column '{col}' -> 'Единица'")
-                    elif 'организация' in col_lower:
+                    elif col_lower == 'плательщик' or 'организация' in col_lower:
                         column_mapping[col] = 'Документ связи.Организация'
                         logger.info(f"Mapped column '{col}' -> 'Документ связи.Организация'")
-                    elif 'номер' in col_lower and ('документ' in col_lower or 'регистр' in col_lower):
+                    elif col_lower == '№ перемещения' or (col_lower == 'номер' and 'перемещ' in col_lower):
                         column_mapping[col] = 'Регистратор.Номер'
                         logger.info(f"Mapped column '{col}' -> 'Регистратор.Номер'")
-                    elif 'период' in col_lower or 'дата' in col_lower:
+                    elif col_lower == 'дата перемещения':
                         column_mapping[col] = 'Период, день.Начало дня'
                         logger.info(f"Mapped column '{col}' -> 'Период, день.Начало дня'")
-                    elif 'количество' in col_lower or 'кол-во' in col_lower or 'приход' in col_lower:
+                    elif col_lower == 'кол-во в перемещении':
                         column_mapping[col] = 'Количество Приход'
                         logger.info(f"Mapped column '{col}' -> 'Количество Приход'")
             return column_mapping
@@ -140,25 +140,66 @@ def load_excel_files():
         for i, col in enumerate(reestr_df.columns):
             logger.info(f"  Column {i}: '{col}'")
         
-        # Check if we found any mappings for sklad
-        if not sklad_mapping:
-            logger.warning("Не найдено автоматического маппинга для sklad.xlsx! Попробуем резервную логику.")
-            # Fallback: try to map by column position if we know the structure
-            if len(sklad_df.columns) >= 7:
-                sklad_mapping = {
-                    sklad_df.columns[0]: 'Номенклатура.Код',
-                    sklad_df.columns[1]: 'Номенклатура.Наименование', 
-                    sklad_df.columns[2]: 'Единица',
-                    sklad_df.columns[3]: 'Документ связи.Организация',
-                    sklad_df.columns[4]: 'Регистратор.Номер',
-                    sklad_df.columns[5]: 'Период, день.Начало дня',
-                    sklad_df.columns[6]: 'Количество Приход'
-                }
-                logger.info("Применена резервная логика маппинга по позициям колонок.")
+        # Check for duplicate values in sklad_mapping
+        if sklad_mapping:
+            mapping_values = list(sklad_mapping.values())
+            duplicate_values = [v for v in set(mapping_values) if mapping_values.count(v) > 1]
+            if duplicate_values:
+                logger.error(f"ОШИБКА: Найдены дублирующиеся значения в маппинге: {duplicate_values}")
+                logger.info("Очищаем маппинг и используем резервную логику...")
+                sklad_mapping = {}
         
-        # Rename columns
-        sklad_df = sklad_df.rename(columns=sklad_mapping)
-        reestr_df = reestr_df.rename(columns=reestr_mapping)
+        # Check if we found any mappings for sklad or use fallback
+        if not sklad_mapping:
+            logger.warning("Не найдено корректного маппинга для sklad.xlsx! Попробуем резервную логику.")
+            
+            # Анализируем структуру файла из логов - видим что колонки уже правильно названы
+            logger.info("Обнаружено, что файл sklad.xlsx уже имеет правильные названия колонок.")
+            
+            # Создаем прямое соответствие для известных колонок
+            direct_mapping = {}
+            for col in sklad_df.columns:
+                col_str = str(col).strip()
+                if col_str == 'код':
+                    direct_mapping[col] = 'Номенклатура.Код'
+                elif col_str == 'предмет':
+                    direct_mapping[col] = 'Номенклатура.Наименование'
+                elif col_str == 'ед.изм':
+                    direct_mapping[col] = 'Единица'
+                elif col_str == 'плательщик':
+                    direct_mapping[col] = 'Документ связи.Организация'
+                elif col_str == '№ перемещения':
+                    direct_mapping[col] = 'Регистратор.Номер'
+                elif col_str == 'дата перемещения':
+                    direct_mapping[col] = 'Период, день.Начало дня'
+                elif col_str == 'кол-во в перемещении':
+                    direct_mapping[col] = 'Количество Приход'
+            
+            sklad_mapping = direct_mapping
+            logger.info(f"Применено прямое соответствие колонок: {sklad_mapping}")
+        
+        # Rename columns with error handling
+        try:
+            logger.info(f"Attempting to rename sklad columns with mapping: {sklad_mapping}")
+            if sklad_mapping:
+                sklad_df = sklad_df.rename(columns=sklad_mapping)
+            else:
+                logger.warning("Пропускаем переименование колонок sklad - маппинг пустой")
+            
+            logger.info(f"Attempting to rename reestr columns with mapping: {reestr_mapping}")
+            if reestr_mapping:
+                reestr_df = reestr_df.rename(columns=reestr_mapping)
+            else:
+                logger.warning("Пропускаем переименование колонок reestr - маппинг пустой")
+                
+        except Exception as e:
+            logger.error(f"Ошибка при переименовании колонок: {e}")
+            logger.info("Используем исходные названия колонок без переименования")
+            # Перечитываем файлы без переименования
+            sklad_df = pd.read_excel(SKLAD_FILE, header=sklad_header_row, engine='openpyxl')
+            reestr_df = pd.read_excel(REESTR_FILE, header=reestr_header_row, engine='openpyxl')
+            sklad_df.columns = sklad_df.columns.str.strip()
+            reestr_df.columns = reestr_df.columns.str.strip()
         
         # Clean data - replace NaN with empty string for string columns
         string_columns_sklad = sklad_df.select_dtypes(include=['object']).columns
@@ -283,15 +324,15 @@ def create_result_dataframe(sklad_df, reestr_df):
         # Initialize result row with empty values
         result_row = {col: "" for col in RESULT_COLUMNS}
         
-        # Copy data from sklad
+        # Copy data from sklad - try both renamed and original column names
         result_row["№"] = idx + 1
-        result_row["код"] = row.get("Номенклатура.Код", "")
-        result_row["предмет"] = row.get("Номенклатура.Наименование", "")
-        result_row["ед.изм"] = row.get("Единица", "")
-        result_row["плательщик"] = row.get("Документ связи.Организация", "")
-        result_row["№ перемещения"] = row.get("Регистратор.Номер", "")
-        result_row["дата перемещения"] = row.get("Период, день.Начало дня", "")
-        result_row["кол-во в перемещении"] = row.get("Количество Приход", 0)
+        result_row["код"] = row.get("Номенклатура.Код", row.get("код", ""))
+        result_row["предмет"] = row.get("Номенклатура.Наименование", row.get("предмет", ""))
+        result_row["ед.изм"] = row.get("Единица", row.get("ед.изм", ""))
+        result_row["плательщик"] = row.get("Документ связи.Организация", row.get("плательщик", ""))
+        result_row["№ перемещения"] = row.get("Регистратор.Номер", row.get("№ перемещения", ""))
+        result_row["дата перемещения"] = row.get("Период, день.Начало дня", row.get("дата перемещения", ""))
+        result_row["кол-во в перемещении"] = row.get("Количество Приход", row.get("кол-во в перемещении", 0))
         result_row["группа"] = "Материалы"
         
         # Log first row data for debugging
