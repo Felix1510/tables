@@ -51,7 +51,12 @@ async function handleRequest(url, options = {}, retries = 2) {
         const response = await fetch(url, {
             ...options,
             credentials: 'same-origin', // Важно для работы с сессиями
-            signal: controller.signal
+            signal: controller.signal,
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest', // Указываем, что это AJAX
+                ...options.headers
+            }
         });
         
         if (!response.ok) {
@@ -90,16 +95,23 @@ async function handleRequest(url, options = {}, retries = 2) {
             const htmlText = await response.text();
             console.warn('Received HTML response, possible redirect to login:', htmlText.substring(0, 200));
             
-            if (htmlText.includes('login') || htmlText.includes('авторизация')) {
+            // Более строгая проверка - ищем специфичные элементы страницы логина
+            if ((htmlText.includes('<title>Login</title>') || 
+                 htmlText.includes('id="loginForm"') ||
+                 htmlText.includes('name="username"')) && 
+                 !url.includes('/login')) {
+                console.log('Detected login page redirect, session expired');
                 addStatusMessage('Сессия истекла, требуется повторная авторизация', 'warning');
                 setTimeout(() => {
                     window.location.href = '/login';
                 }, 2000);
                 return { status: 'error', message: 'Сессия истекла' };
             } else {
+                // Не редирект на логин - возможно другая проблема
+                console.error('Unexpected HTML response:', htmlText.substring(0, 300));
                 return { 
                     status: 'error', 
-                    message: `Сервер вернул HTML вместо JSON: ${response.status}` 
+                    message: `Сервер вернул HTML вместо JSON для ${url}` 
                 };
             }
         } else if (contentType.includes('application/vnd.openxmlformats') || 
@@ -184,6 +196,7 @@ if (loginForm) {
         const password = document.getElementById('password').value;
 
         try {
+            console.log('Attempting login for user:', username);
             const data = await handleRequest('/login', {
                 method: 'POST',
                 headers: {
@@ -192,19 +205,22 @@ if (loginForm) {
                 body: JSON.stringify({ username, password })
             });
 
-            if (data.status === 'success') {
-                // Очищаем файлы при входе в систему для чистого старта
-                try {
-                    await handleRequest('/clear', { method: 'POST' });
-                } catch (clearError) {
-                    console.log('Warning: Could not clear files on login:', clearError);
-                }
+            console.log('Login response:', data);
+
+            if (data && data.status === 'success') {
+                console.log('Login successful, redirecting to main page');
+                document.getElementById('login-error').textContent = '';
                 window.location.href = '/';
-            } else {
+            } else if (data && data.status === 'error') {
+                console.log('Login failed:', data.message);
                 document.getElementById('login-error').textContent = data.message;
+            } else {
+                console.error('Unexpected login response:', data);
+                document.getElementById('login-error').textContent = 'Неожиданный ответ сервера';
             }
         } catch (error) {
-            document.getElementById('login-error').textContent = 'Ошибка при входе';
+            console.error('Login error:', error);
+            document.getElementById('login-error').textContent = 'Ошибка при входе: ' + error.message;
         }
     });
 }

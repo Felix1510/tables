@@ -40,7 +40,22 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
-            return redirect(url_for('login'))
+            # Проверяем, это AJAX запрос или обычный браузерный запрос
+            is_ajax = (request.is_json or 
+                      'application/json' in request.headers.get('Accept', '') or
+                      request.headers.get('X-Requested-With') == 'XMLHttpRequest')
+            
+            if is_ajax:
+                # Для AJAX запросов возвращаем JSON с кодом 401
+                logger.info(f"AJAX request to {request.endpoint} without auth, returning 401")
+                response = jsonify({'status': 'error', 'message': 'Требуется авторизация'})
+                response.status_code = 401
+                response.headers['Content-Type'] = 'application/json; charset=utf-8'
+                return response
+            else:
+                # Для обычных запросов делаем редирект
+                logger.info(f"Regular request to {request.endpoint} without auth, redirecting to login")
+                return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -69,15 +84,35 @@ def allowed_file(filename):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
-        
-        if username == VALID_USERNAME and password == VALID_PASSWORD:
-            session['user'] = username
-            session.permanent = True
-            return jsonify({'status': 'success'})
-        return jsonify({'status': 'error', 'message': 'Неверный логин или пароль'})
+        try:
+            data = request.get_json()
+            if not data:
+                logger.warning("Login attempt with empty JSON data")
+                return jsonify({'status': 'error', 'message': 'Некорректные данные'})
+            
+            username = data.get('username')
+            password = data.get('password')
+            
+            logger.info(f"Login attempt for user: {username}")
+            
+            if username == VALID_USERNAME and password == VALID_PASSWORD:
+                session['user'] = username
+                session.permanent = True
+                logger.info(f"Successful login for user: {username}")
+                
+                response = jsonify({'status': 'success'})
+                response.headers['Content-Type'] = 'application/json; charset=utf-8'
+                return response
+            else:
+                logger.warning(f"Failed login attempt for user: {username}")
+                response = jsonify({'status': 'error', 'message': 'Неверный логин или пароль'})
+                response.headers['Content-Type'] = 'application/json; charset=utf-8'
+                return response
+        except Exception as e:
+            logger.error(f"Error during login: {str(e)}")
+            response = jsonify({'status': 'error', 'message': 'Ошибка сервера'})
+            response.headers['Content-Type'] = 'application/json; charset=utf-8'
+            return response
     
     return render_template('login.html')
 
