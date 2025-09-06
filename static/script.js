@@ -72,13 +72,24 @@ async function handleRequest(url, options = {}, retries = 2) {
                 return { status: 'error', message: 'Получен некорректный ответ от сервера' };
             }
         } else {
-            // Если не JSON, пытаемся получить текст ответа для диагностики
-            const textResponse = await response.text();
-            console.error('Non-JSON response received:', textResponse);
-            return { 
-                status: 'error', 
-                message: `Сервер вернул не-JSON ответ: ${response.status} ${response.statusText}` 
-            };
+            // Проверяем, это файл или другой тип ответа
+            const contentType = response.headers.get('content-type') || '';
+            
+            if (contentType.includes('application/vnd.openxmlformats') || 
+                contentType.includes('application/octet-stream') ||
+                contentType.includes('application/excel')) {
+                // Это файл - возвращаем сам response для обработки как файл
+                console.log('File response detected, returning response object');
+                return response;
+            } else {
+                // Пытаемся получить текст ответа для диагностики
+                const textResponse = await response.text();
+                console.error('Non-JSON response received:', textResponse);
+                return { 
+                    status: 'error', 
+                    message: `Сервер вернул не-JSON ответ: ${response.status} ${response.statusText}` 
+                };
+            }
         }
     } catch (error) {
         clearTimeout(timeoutId);
@@ -257,21 +268,40 @@ async function downloadFile() {
             return;
         }
 
-        // Создаем временную ссылку для скачивания
-        const link = document.createElement('a');
-        link.style.display = 'none';
-        document.body.appendChild(link);
+        addStatusMessage('Начинаем скачивание файла...', 'info');
+
+        // Используем прямой fetch для загрузки файла (не через handleRequest)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         try {
-            const response = await handleRequest('/download');
+            const response = await fetch('/download', {
+                credentials: 'same-origin',
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
             if (!response.ok) {
-                throw new Error('Download failed');
+                if (response.headers.get('content-type')?.includes('application/json')) {
+                    // Если сервер вернул JSON ошибку
+                    const errorData = await response.json();
+                    addStatusMessage(errorData.message || 'Ошибка при скачивании файла', 'error');
+                } else {
+                    addStatusMessage(`Ошибка сервера: ${response.status} ${response.statusText}`, 'error');
+                }
+                return;
             }
-            
+
+            // Создаем временную ссылку для скачивания
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.style.display = 'none';
             link.href = url;
             link.download = 'result.xlsx';
+            document.body.appendChild(link);
             link.click();
             
             // Очищаем URL после скачивания
@@ -279,13 +309,22 @@ async function downloadFile() {
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(link);
             }, 100);
+
+            addStatusMessage('Файл успешно скачан', 'success');
+
         } catch (error) {
+            clearTimeout(timeoutId);
             console.error('Download error:', error);
-            addStatusMessage('Ошибка при скачивании файла', 'error');
+            
+            if (error.name === 'AbortError') {
+                addStatusMessage('Скачивание прервано по таймауту', 'error');
+            } else {
+                addStatusMessage('Ошибка при скачивании файла: ' + error.message, 'error');
+            }
         }
     } catch (error) {
         console.error('Download error:', error);
-        addStatusMessage('Ошибка при скачивании файла', 'error');
+        addStatusMessage('Ошибка при проверке файла', 'error');
     }
 }
 

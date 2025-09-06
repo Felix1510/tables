@@ -155,7 +155,13 @@ def start_process():
 @login_required
 def download_file():
     try:
+        logger.info(f"Download request received. Checking file: {RESULT_FILE}")
+        
         if os.path.exists(RESULT_FILE):
+            # Проверяем размер файла
+            file_size = os.path.getsize(RESULT_FILE)
+            logger.info(f"File exists, size: {file_size} bytes")
+            
             # Добавим заголовки для предотвращения кэширования
             response = send_file(
                 RESULT_FILE,
@@ -166,8 +172,19 @@ def download_file():
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             response.headers['Pragma'] = 'no-cache'
             response.headers['Expires'] = '0'
+            
+            logger.info("File sent successfully")
             return response
-        return jsonify({'status': 'error', 'message': 'File not found'})
+        else:
+            logger.warning(f"File not found: {RESULT_FILE}")
+            # Проверим, какие файлы есть в директории
+            try:
+                files_in_dir = os.listdir(WORKING_DIR)
+                logger.info(f"Files in working directory: {files_in_dir}")
+            except Exception as dir_error:
+                logger.error(f"Error listing directory: {dir_error}")
+                
+            return jsonify({'status': 'error', 'message': 'File not found'})
     except Exception as e:
         logger.error(f"Error downloading file: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)})
@@ -202,20 +219,37 @@ def clear_files():
 @app.route('/check_files')
 @login_required
 def check_files():
-    exit_exists = os.path.exists(RESULT_FILE)
-    
-    # Дополнительная диагностика
-    sklad_exists = os.path.exists(SKLAD_FILE)
-    reestr_exists = os.path.exists(REESTR_FILE)
-    
-    logger.info(f"File check: sklad={sklad_exists}, reestr={reestr_exists}, exit={exit_exists}")
-    
-    return jsonify({
-        'exit_exists': exit_exists,
-        'sklad_exists': sklad_exists,
-        'reestr_exists': reestr_exists,
-        'working_dir': WORKING_DIR
-    })
+    try:
+        exit_exists = os.path.exists(RESULT_FILE)
+        sklad_exists = os.path.exists(SKLAD_FILE)
+        reestr_exists = os.path.exists(REESTR_FILE)
+        
+        # Дополнительная информация о файлах
+        file_info = {}
+        for file_name, file_path in [('exit', RESULT_FILE), ('sklad', SKLAD_FILE), ('reestr', REESTR_FILE)]:
+            if os.path.exists(file_path):
+                try:
+                    stat = os.stat(file_path)
+                    file_info[f'{file_name}_size'] = stat.st_size
+                    file_info[f'{file_name}_mtime'] = datetime.fromtimestamp(stat.st_mtime).isoformat()
+                except Exception as e:
+                    logger.error(f"Error getting info for {file_name}: {e}")
+        
+        logger.info(f"File check: sklad={sklad_exists}, reestr={reestr_exists}, exit={exit_exists}")
+        logger.info(f"File info: {file_info}")
+        
+        result = {
+            'exit_exists': exit_exists,
+            'sklad_exists': sklad_exists,
+            'reestr_exists': reestr_exists,
+            'working_dir': WORKING_DIR,
+            **file_info
+        }
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error in check_files: {str(e)}")
+        return jsonify({'error': str(e)})
 
 @app.route('/get_logs')
 @login_required
