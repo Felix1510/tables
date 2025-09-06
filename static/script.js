@@ -36,11 +36,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Общая функция для обработки запросов
-async function handleRequest(url, options = {}) {
+async function handleRequest(url, options = {}, retries = 2) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
+    
     try {
         const response = await fetch(url, {
             ...options,
-            credentials: 'same-origin' // Важно для работы с сессиями
+            credentials: 'same-origin', // Важно для работы с сессиями
+            signal: controller.signal
         });
         
         if (!response.ok) {
@@ -51,7 +55,7 @@ async function handleRequest(url, options = {}) {
                 setTimeout(() => {
                     window.location.href = '/login';
                 }, 2000);
-                return;
+                return { status: 'error', message: 'Сессия истекла' };
             }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -67,11 +71,36 @@ async function handleRequest(url, options = {}) {
                 console.error('Invalid JSON response:', jsonData);
                 return { status: 'error', message: 'Получен некорректный ответ от сервера' };
             }
+        } else {
+            // Если не JSON, пытаемся получить текст ответа для диагностики
+            const textResponse = await response.text();
+            console.error('Non-JSON response received:', textResponse);
+            return { 
+                status: 'error', 
+                message: `Сервер вернул не-JSON ответ: ${response.status} ${response.statusText}` 
+            };
         }
-        return response;
     } catch (error) {
+        clearTimeout(timeoutId);
+        
+        // Если это таймаут или сетевая ошибка, пробуем повторить
+        if ((error.name === 'AbortError' || error.name === 'TypeError') && retries > 0) {
+            console.log(`Запрос ${url} неудачен, повторяем... (осталось попыток: ${retries})`);
+            addStatusMessage(`Повторяем запрос... (осталось попыток: ${retries})`, 'warning');
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Пауза 1 секунда
+            return handleRequest(url, options, retries - 1);
+        }
+        
         console.error('Request failed:', error);
-        throw error;
+        
+        // Возвращаем структурированную ошибку вместо выброса исключения
+        if (error.name === 'AbortError') {
+            return { status: 'error', message: 'Запрос превысил время ожидания (30 сек)' };
+        } else {
+            return { status: 'error', message: `Ошибка сети: ${error.message}` };
+        }
+    } finally {
+        clearTimeout(timeoutId);
     }
 }
 
@@ -182,6 +211,8 @@ async function uploadFile(type) {
         });
         if (data && data.message) {
             addStatusMessage(data.message, data.status);
+        } else if (data && data.status === 'error') {
+            addStatusMessage(data.message || 'Ошибка при загрузке файла', 'error');
         } else {
             addStatusMessage('Получен пустой ответ от сервера при загрузке файла', 'error');
         }
@@ -201,6 +232,8 @@ async function startProcess() {
         });
         if (data && data.message) {
             addStatusMessage(data.message, data.status);
+        } else if (data && data.status === 'error') {
+            addStatusMessage(data.message || 'Ошибка при запуске процесса', 'error');
         } else {
             addStatusMessage('Получен пустой ответ от сервера при запуске процесса', 'error');
         }
@@ -264,6 +297,8 @@ async function clearFiles() {
         });
         if (data && data.message) {
             addStatusMessage(data.message, data.status);
+        } else if (data && data.status === 'error') {
+            addStatusMessage(data.message || 'Ошибка при очистке файлов', 'error');
         } else {
             addStatusMessage('Получен пустой ответ от сервера при очистке файлов', 'error');
         }

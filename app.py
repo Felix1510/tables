@@ -175,21 +175,29 @@ def download_file():
 @app.route('/clear', methods=['POST'])
 @login_required
 def clear_files():
-    files = ['sklad.xlsx', 'reestr.xlsx', 'exit.xlsx']
-    cleared = []
-    for file in files:
-        file_path = os.path.join(WORKING_DIR, file)
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-                cleared.append(file)
-                logger.info(f"Removed file: {file}")
-            except Exception as e:
-                logger.error(f"Error removing {file}: {str(e)}")
-    return jsonify({
-        'status': 'success', 
-        'message': f'Files cleared: {", ".join(cleared)}' if cleared else 'No files to clear'
-    })
+    try:
+        logger.info("Clear files request received")
+        files = ['sklad.xlsx', 'reestr.xlsx', 'exit.xlsx']
+        cleared = []
+        for file in files:
+            file_path = os.path.join(WORKING_DIR, file)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    cleared.append(file)
+                    logger.info(f"Removed file: {file}")
+                except Exception as e:
+                    logger.error(f"Error removing {file}: {str(e)}")
+        
+        result = {
+            'status': 'success', 
+            'message': f'Files cleared: {", ".join(cleared)}' if cleared else 'No files to clear'
+        }
+        logger.info(f"Clear files result: {result}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error in clear_files endpoint: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Ошибка при очистке файлов: {str(e)}'})
 
 @app.route('/check_files')
 @login_required
