@@ -33,7 +33,7 @@ const CONFIG = {
 // =============================================================================
 
 /**
- * Простая функция для HTTP запросов без сложной логики
+ * Простая функция для HTTP запросов без агрессивных проверок авторизации
  */
 async function makeRequest(url, options = {}) {
     const controller = new AbortController();
@@ -49,29 +49,58 @@ async function makeRequest(url, options = {}) {
             }
         };
 
-        const response = await fetch(url, { ...defaultOptions, ...options });
+        // Объединяем заголовки правильно
+        const mergedOptions = {
+            ...defaultOptions,
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...(options.headers || {})
+            }
+        };
+
+        const response = await fetch(url, mergedOptions);
         clearTimeout(timeoutId);
         
-        // Проверяем статус ответа
+        // Проверяем статус ответа - только для явных ошибок
         if (!response.ok) {
             if (response.status === 401) {
-                handleAuthError();
-                throw new Error('Требуется авторизация');
+                // Только для эндпоинтов, требующих авторизации
+                if (!url.includes('/login') && !url.includes('/check_auth')) {
+                    console.log('Получен 401, но не обрабатываем как ошибку авторизации');
+                    handleAuthError();
+                    throw new Error('Требуется авторизация');
+                }
             }
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            
+            if (response.status >= 500) {
+                throw new Error(`Ошибка сервера: ${response.status}`);
+            }
         }
 
         // Определяем тип ответа
         const contentType = response.headers.get('content-type') || '';
+        console.log(`Response from ${url}: ${response.status}, content-type: ${contentType}`);
         
         if (contentType.includes('application/json')) {
-            return await response.json();
+            const jsonData = await response.json();
+            return jsonData;
         } else if (contentType.includes('application/vnd.openxmlformats') || 
-                   contentType.includes('application/octet-stream')) {
+                   contentType.includes('application/octet-stream') ||
+                   contentType.includes('application/excel')) {
             return response; // Возвращаем сырой ответ для файлов
         } else {
+            // Для неожиданных типов - пытаемся получить текст
             const text = await response.text();
-            throw new Error(`Неожиданный тип ответа: ${contentType}`);
+            console.warn(`Unexpected content type ${contentType} from ${url}:`, text.substring(0, 200));
+            
+            // Если это JSON в неправильной упаковке - пытаемся распарсить
+            try {
+                const jsonData = JSON.parse(text);
+                return jsonData;
+            } catch (e) {
+                throw new Error(`Неожиданный тип ответа: ${contentType}`);
+            }
         }
         
     } catch (error) {
@@ -119,13 +148,14 @@ function sleep(ms) {
 }
 
 /**
- * Обработка ошибок авторизации
+ * Обработка ошибок авторизации - только когда действительно нужно
  */
 function handleAuthError() {
+    console.log('Обработка ошибки авторизации');
     showMessage('Сессия истекла, требуется повторная авторизация', 'warning');
     setTimeout(() => {
         window.location.href = '/login';
-    }, CONFIG.TIMEOUTS.REDIRECT_DELAY);
+    }, 1500); // Уменьшили задержку
 }
 
 // =============================================================================
@@ -213,19 +243,23 @@ function setIndicator(indicatorId, isActive) {
 // =============================================================================
 
 /**
- * Проверка статуса авторизации для главной страницы
+ * Проверка статуса авторизации для главной страницы - менее агрессивная
  */
 async function checkAuthStatus() {
     try {
         const data = await makeRequest(CONFIG.ENDPOINTS.CHECK_AUTH);
-        if (!data.authenticated) {
+        if (data && data.authenticated === false) {
+            console.log('Пользователь не авторизован, перенаправление на логин');
             window.location.href = '/login';
-        } else {
+        } else if (data && data.authenticated === true) {
             console.log('Пользователь авторизован:', data.user);
+        } else {
+            console.warn('Неожиданный ответ при проверке авторизации:', data);
         }
     } catch (error) {
         console.error('Ошибка проверки авторизации:', error);
-        window.location.href = '/login';
+        // Не перенаправляем сразу - даем пользователю возможность работать
+        console.log('Продолжаем работу несмотря на ошибку проверки авторизации');
     }
 }
 
@@ -537,6 +571,7 @@ function initLoginForm() {
         
         try {
             console.log('Попытка входа для пользователя:', username);
+            errorElement.textContent = '';
             
             const data = await makeRequest(CONFIG.ENDPOINTS.LOGIN, {
                 method: 'POST',
@@ -546,20 +581,22 @@ function initLoginForm() {
                 body: JSON.stringify({ username, password })
             });
             
-            console.log('Ответ сервера:', data);
+            console.log('Ответ сервера на логин:', data);
             
-            if (data.status === 'success') {
-                console.log('Успешный вход');
-                errorElement.textContent = '';
+            if (data && data.status === 'success') {
+                console.log('Успешный вход, перенаправление...');
                 window.location.href = '/';
-            } else {
+            } else if (data && data.status === 'error') {
                 console.log('Неудачный вход:', data.message);
-                errorElement.textContent = data.message || 'Ошибка входа';
+                errorElement.textContent = data.message || 'Неверный логин или пароль';
+            } else {
+                console.warn('Неожиданный ответ при входе:', data);
+                errorElement.textContent = 'Неожиданный ответ сервера';
             }
             
         } catch (error) {
             console.error('Ошибка входа:', error);
-            errorElement.textContent = `Ошибка входа: ${error.message}`;
+            errorElement.textContent = 'Ошибка соединения с сервером';
         }
     });
 }

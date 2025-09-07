@@ -1,6 +1,6 @@
 /**
- * Стили для системы обработки Excel файлов
- * Современный и улучшенный дизайн
+ * Корпоративные стили для системы обработки Excel файлов
+ * Компактный дизайн без эффектов и теней
  */
 
 /* =============================================================================
@@ -15,21 +15,19 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    line-height: 1.6;
+    line-height: 1.4;
     color: #333;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #f5f5f5;
     min-height: 100vh;
-    padding: 20px;
+    padding: 10px;
 }
 
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 20px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(10px);
-    overflow: hidden;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
 }
 
 /* =============================================================================
@@ -37,43 +35,41 @@ body {
    ============================================================================= */
 
 .header {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    background: #2c3e50;
     color: white;
-    padding: 30px;
-    text-align: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #34495e;
     position: relative;
 }
 
 .header h1 {
-    font-size: 2.5em;
-    font-weight: 300;
-    margin-bottom: 10px;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    font-size: 1.8em;
+    font-weight: 600;
+    margin-bottom: 5px;
 }
 
 .header p {
-    font-size: 1.1em;
-    opacity: 0.9;
-    font-weight: 300;
+    font-size: 0.9em;
+    opacity: 0.8;
+    font-weight: 400;
 }
 
 .logout-btn {
     position: absolute;
-    top: 20px;
+    top: 15px;
     right: 20px;
-    background: rgba(255, 255, 255, 0.2);
+    background: #34495e;
     color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    padding: 10px 20px;
-    border-radius: 25px;
+    border: 1px solid #4a5f7a;
+    padding: 8px 16px;
+    border-radius: 3px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 0.9em;
+    font-size: 0.85em;
+    font-weight: 500;
 }
 
 .logout-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: translateY(-2px);
+    background: #4a5f7a;
 }
 
 /* =============================================================================
@@ -81,34 +77,28 @@ body {
    ============================================================================= */
 
 .main-content {
-    padding: 40px;
+    padding: 15px;
 }
 
 /* Секции */
 .section {
-    margin-bottom: 40px;
+    margin-bottom: 20px;
     background: white;
-    border-radius: 15px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-    overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.section:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e0e0e0;
+    border-radius: 3px;
 }
 
 .section-header {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
-    padding: 20px 30px;
-    font-size: 1.3em;
-    font-weight: 500;
+    background: #ecf0f1;
+    color: #2c3e50;
+    padding: 12px 15px;
+    font-size: 1.1em;
+    font-weight: 600;
+    border-bottom: 1px solid #d0d0d0;
 }
 
 .section-content {
-    padding: 30px;
+    padding: 15px;
 }
 
 /* =============================================================================
@@ -117,46 +107,39 @@ body {
 
 .upload-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 25px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
 }
 
 .file-upload {
-    background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-    border-radius: 12px;
-    padding: 25px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+    padding: 15px;
     text-align: center;
-    transition: all 0.3s ease;
-    border: 2px dashed transparent;
-}
-
-.file-upload:hover {
-    border-color: #ff6b6b;
-    transform: scale(1.02);
 }
 
 .file-upload label {
     display: block;
     font-weight: 600;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     color: #333;
-    font-size: 1.1em;
+    font-size: 1em;
 }
 
 .file-upload input[type="file"] {
     width: 100%;
-    padding: 12px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    margin-bottom: 15px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    margin-bottom: 10px;
     background: white;
-    transition: border-color 0.3s ease;
+    font-size: 0.9em;
 }
 
 .file-upload input[type="file"]:focus {
-    border-color: #4facfe;
+    border-color: #007bff;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
 }
 
 /* =============================================================================
@@ -164,35 +147,30 @@ body {
    ============================================================================= */
 
 .file-status-section .section-header {
-    background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-    color: #333;
+    background: #e8f4f8;
+    color: #2c3e50;
 }
 
 .status-indicators {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 30px;
-    margin-top: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
 }
 
 .status-indicator {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
-    padding: 20px;
-    background: linear-gradient(135deg, #f6f9fc 0%, #e9ecef 100%);
-    border-radius: 12px;
-    transition: all 0.3s ease;
-}
-
-.status-indicator:hover {
-    transform: translateY(-3px);
+    gap: 8px;
+    padding: 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
 }
 
 .status-indicator label {
-    font-size: 1em;
-    font-weight: 600;
+    font-size: 0.9em;
+    font-weight: 500;
     color: #555;
     text-align: center;
 }
@@ -200,34 +178,33 @@ body {
 /* Переключатели */
 .toggle-switch {
     position: relative;
-    width: 60px;
-    height: 30px;
-    background: linear-gradient(135deg, #ddd 0%, #bbb 100%);
-    border-radius: 15px;
-    transition: all 0.3s ease;
-    cursor: default;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    width: 50px;
+    height: 24px;
+    background: #ccc;
+    border-radius: 12px;
+    border: 1px solid #bbb;
 }
 
 .toggle-switch.active {
-    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 20px rgba(76, 175, 80, 0.3);
+    background: #28a745;
+    border-color: #1e7e34;
 }
 
 .toggle-slider {
     position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 24px;
-    height: 24px;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
     background: white;
     border-radius: 50%;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    border: 1px solid #aaa;
+    transition: transform 0.2s ease;
 }
 
 .toggle-switch.active .toggle-slider {
-    transform: translateX(30px);
+    transform: translateX(24px);
+    border-color: #1e7e34;
 }
 
 /* =============================================================================
@@ -235,53 +212,59 @@ body {
    ============================================================================= */
 
 .btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #007bff;
     color: white;
-    border: none;
-    padding: 15px 30px;
-    border-radius: 10px;
+    border: 1px solid #0056b3;
+    padding: 10px 20px;
+    border-radius: 3px;
     cursor: pointer;
-    font-size: 1em;
-    font-weight: 600;
-    transition: all 0.3s ease;
+    font-size: 0.9em;
+    font-weight: 500;
     text-decoration: none;
     display: inline-block;
     text-align: center;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-    position: relative;
-    overflow: hidden;
 }
 
 .btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    background: #0056b3;
 }
 
 .btn:active {
-    transform: translateY(-1px);
+    background: #004085;
 }
 
 .btn:disabled {
-    background: linear-gradient(135deg, #ccc 0%, #999 100%);
+    background: #6c757d;
+    border-color: #545b62;
     cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
 }
 
 /* Специальные кнопки */
 .btn-success {
-    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    background: #28a745;
+    border-color: #1e7e34;
+}
+
+.btn-success:hover {
+    background: #1e7e34;
 }
 
 .btn-danger {
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+    background: #dc3545;
+    border-color: #bd2130;
+}
+
+.btn-danger:hover {
+    background: #bd2130;
 }
 
 .btn-info {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+    background: #17a2b8;
+    border-color: #117a8b;
+}
+
+.btn-info:hover {
+    background: #117a8b;
 }
 
 /* =============================================================================
@@ -289,14 +272,14 @@ body {
    ============================================================================= */
 
 .process-section .section-header {
-    background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
-    color: #333;
+    background: #e8f5e8;
+    color: #2c3e50;
 }
 
 .control-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
 }
 
 /* =============================================================================
@@ -304,81 +287,72 @@ body {
    ============================================================================= */
 
 .status-section .section-header {
-    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-    color: #333;
+    background: #fff3cd;
+    color: #2c3e50;
 }
 
 .status-console {
-    height: 250px;
+    height: 200px;
     overflow-y: auto;
-    background: #1e1e1e;
-    border-radius: 8px;
-    padding: 15px;
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 3px;
+    padding: 10px;
     font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 0.9em;
-    line-height: 1.4;
-    
-    /* Кастомный скроллбар */
-    scrollbar-width: thin;
-    scrollbar-color: #4facfe #2a2a2a;
+    font-size: 0.85em;
+    line-height: 1.3;
 }
 
 .status-console::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 .status-console::-webkit-scrollbar-track {
-    background: #2a2a2a;
-    border-radius: 4px;
+    background: #4a5568;
 }
 
 .status-console::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    border-radius: 4px;
-}
-
-.status-console::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #718096;
+    border-radius: 3px;
 }
 
 /* Сообщения в консоли */
 .status-message {
-    padding: 8px 12px;
-    margin-bottom: 5px;
-    border-radius: 6px;
-    border-left: 4px solid;
-    animation: fadeInUp 0.3s ease;
+    padding: 4px 8px;
+    margin-bottom: 2px;
+    border-radius: 2px;
+    border-left: 3px solid;
 }
 
 .status-message.info {
-    background: rgba(79, 172, 254, 0.1);
-    border-left-color: #4facfe;
-    color: #4facfe;
+    background: rgba(59, 130, 246, 0.1);
+    border-left-color: #3b82f6;
+    color: #60a5fa;
 }
 
 .status-message.success {
-    background: rgba(76, 175, 80, 0.1);
-    border-left-color: #4CAF50;
-    color: #4CAF50;
+    background: rgba(34, 197, 94, 0.1);
+    border-left-color: #22c55e;
+    color: #4ade80;
 }
 
 .status-message.warning {
-    background: rgba(255, 193, 7, 0.1);
-    border-left-color: #ffc107;
-    color: #ffc107;
+    background: rgba(245, 158, 11, 0.1);
+    border-left-color: #f59e0b;
+    color: #fbbf24;
 }
 
 .status-message.error {
-    background: rgba(255, 107, 107, 0.1);
-    border-left-color: #ff6b6b;
-    color: #ff6b6b;
+    background: rgba(239, 68, 68, 0.1);
+    border-left-color: #ef4444;
+    color: #f87171;
 }
 
 .message-time {
     font-weight: bold;
-    opacity: 0.8;
-    font-size: 0.85em;
-    margin-right: 8px;
+    opacity: 0.7;
+    font-size: 0.8em;
+    margin-right: 6px;
 }
 
 .message-text {
@@ -390,67 +364,70 @@ body {
    ============================================================================= */
 
 .login-container {
-    max-width: 400px;
-    margin: 10vh auto;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 20px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(10px);
-    overflow: hidden;
+    max-width: 350px;
+    margin: 15vh auto;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
 }
 
 .login-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #2c3e50;
     color: white;
-    padding: 30px;
+    padding: 20px;
     text-align: center;
+    border-bottom: 1px solid #34495e;
 }
 
 .login-header h1 {
-    font-size: 2em;
-    font-weight: 300;
-    margin-bottom: 10px;
+    font-size: 1.6em;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.login-header p {
+    font-size: 0.9em;
+    opacity: 0.8;
 }
 
 .login-form {
-    padding: 40px;
+    padding: 25px;
 }
 
 .form-group {
-    margin-bottom: 25px;
+    margin-bottom: 15px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
+    margin-bottom: 5px;
+    font-weight: 500;
     color: #333;
+    font-size: 0.9em;
 }
 
 .form-group input {
     width: 100%;
-    padding: 15px;
-    border: 2px solid #ddd;
-    border-radius: 10px;
-    font-size: 1em;
-    transition: border-color 0.3s ease;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 0.9em;
     background: white;
 }
 
 .form-group input:focus {
-    border-color: #4facfe;
+    border-color: #007bff;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
 }
 
 .login-error {
-    color: #ff6b6b;
-    font-size: 0.9em;
-    margin-top: 10px;
-    padding: 10px;
-    background: rgba(255, 107, 107, 0.1);
-    border-radius: 6px;
-    border-left: 4px solid #ff6b6b;
+    color: #dc3545;
+    font-size: 0.85em;
+    margin-top: 8px;
+    padding: 8px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 3px;
 }
 
 /* =============================================================================
@@ -459,49 +436,14 @@ body {
 
 .logo-image {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 120px;
-    height: 120px;
+    bottom: 15px;
+    right: 15px;
+    width: 80px;
+    height: 80px;
     z-index: 1000;
     pointer-events: none;
-    opacity: 0.7;
-    border-radius: 50%;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    transition: all 0.3s ease;
-}
-
-.logo-image:hover {
-    opacity: 1;
-    transform: scale(1.05);
-}
-
-/* =============================================================================
-   АНИМАЦИИ
-   ============================================================================= */
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes pulse {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-    }
-}
-
-.btn:hover {
-    animation: pulse 2s infinite;
+    opacity: 0.6;
+    border-radius: 4px;
 }
 
 /* =============================================================================
@@ -510,19 +452,23 @@ body {
 
 @media (max-width: 768px) {
     body {
-        padding: 10px;
+        padding: 5px;
     }
     
-    .container {
-        border-radius: 15px;
+    .header {
+        padding: 12px 15px;
     }
     
     .header h1 {
-        font-size: 2em;
+        font-size: 1.4em;
     }
     
     .main-content {
-        padding: 20px;
+        padding: 10px;
+    }
+    
+    .section-content {
+        padding: 12px;
     }
     
     .upload-grid {
@@ -539,81 +485,112 @@ body {
     
     .logout-btn {
         position: static;
-        margin-top: 20px;
+        margin-top: 10px;
+        display: block;
+        width: 80px;
     }
     
     .logo-image {
-        width: 80px;
-        height: 80px;
+        width: 60px;
+        height: 60px;
         bottom: 10px;
         right: 10px;
+    }
+    
+    .status-console {
+        height: 150px;
+        font-size: 0.8em;
     }
 }
 
 @media (max-width: 480px) {
     .header {
-        padding: 20px;
+        padding: 10px;
+        text-align: center;
     }
     
     .header h1 {
-        font-size: 1.5em;
+        font-size: 1.2em;
     }
     
-    .section-content {
-        padding: 20px;
+    .header p {
+        font-size: 0.8em;
+    }
+    
+    .section-header {
+        padding: 10px 12px;
+        font-size: 1em;
     }
     
     .file-upload {
-        padding: 20px;
+        padding: 12px;
     }
     
     .btn {
-        padding: 12px 20px;
-        font-size: 0.9em;
+        padding: 8px 16px;
+        font-size: 0.85em;
+    }
+    
+    .login-container {
+        margin: 10vh auto;
+    }
+    
+    .login-form {
+        padding: 20px;
     }
 }
 
 /* =============================================================================
-   ДОПОЛНИТЕЛЬНЫЕ УЛУЧШЕНИЯ
+   ДОПОЛНИТЕЛЬНЫЕ КОРПОРАТИВНЫЕ СТИЛИ
    ============================================================================= */
 
-/* Эффект загрузки */
-.loading {
-    opacity: 0.6;
-    pointer-events: none;
-    position: relative;
+/* Убираем все тени и эффекты */
+*, *:before, *:after {
+    box-shadow: none !important;
+    text-shadow: none !important;
 }
 
-.loading::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 20px;
-    height: 20px;
-    margin: -10px 0 0 -10px;
-    border: 2px solid #4facfe;
-    border-radius: 50%;
-    border-top-color: transparent;
-    animation: spin 1s linear infinite;
+/* Простые границы для всех элементов */
+.section, .file-upload, .status-indicator, .btn, input, .login-container {
+    box-shadow: none;
 }
 
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Улучшенные тени */
+/* Минимальные отступы */
 .section {
-    box-shadow: 
-        0 1px 3px rgba(0, 0, 0, 0.12),
-        0 1px 2px rgba(0, 0, 0, 0.24);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    margin-bottom: 15px;
 }
 
-.section:hover {
-    box-shadow: 
-        0 14px 28px rgba(0, 0, 0, 0.25),
-        0 10px 10px rgba(0, 0, 0, 0.22);
+.section-content {
+    padding: 12px;
+}
+
+.file-upload {
+    padding: 12px;
+}
+
+.status-indicator {
+    padding: 10px;
+}
+
+/* Компактные кнопки */
+.btn {
+    padding: 8px 16px;
+    font-size: 0.9em;
+}
+
+/* Компактная консоль */
+.status-console {
+    height: 180px;
+    padding: 8px;
+}
+
+.status-message {
+    padding: 3px 6px;
+    margin-bottom: 1px;
+}
+
+/* Убираем анимации */
+* {
+    transition: none !important;
+    animation: none !important;
 }

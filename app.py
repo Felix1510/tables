@@ -27,10 +27,14 @@ RESULT_FILE = os.path.join(WORKING_DIR, "exit.xlsx")
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
-app.config['SESSION_COOKIE_SECURE'] = False  # Отключено для локальной разработки
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # Сессия на 30 дней
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# Настройки сессий для стабильной работы
+app.config['SESSION_COOKIE_SECURE'] = False  # HTTP для локальной разработки
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # Защита от XSS
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Защита от CSRF
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # 8 часов вместо 30 дней
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Обновляем сессию при каждом запросе
+app.config['SESSION_COOKIE_NAME'] = 'excel_processor_session'  # Уникальное имя куки
 
 # Login credentials
 VALID_USERNAME = "User"
@@ -40,22 +44,24 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
-            # Проверяем, это AJAX запрос или обычный браузерный запрос
-            is_ajax = (request.is_json or 
-                      'application/json' in request.headers.get('Accept', '') or
-                      request.headers.get('X-Requested-With') == 'XMLHttpRequest')
+            # Проверяем, это AJAX запрос
+            is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                      'application/json' in request.headers.get('Accept', ''))
             
             if is_ajax:
                 # Для AJAX запросов возвращаем JSON с кодом 401
-                logger.info(f"AJAX request to {request.endpoint} without auth, returning 401")
+                logger.warning(f"Unauthorized AJAX request to {request.endpoint}")
                 response = jsonify({'status': 'error', 'message': 'Требуется авторизация'})
                 response.status_code = 401
                 response.headers['Content-Type'] = 'application/json; charset=utf-8'
                 return response
             else:
                 # Для обычных запросов делаем редирект
-                logger.info(f"Regular request to {request.endpoint} without auth, redirecting to login")
+                logger.info(f"Unauthorized request to {request.endpoint}, redirecting to login")
                 return redirect(url_for('login'))
+        
+        # Обновляем время последней активности
+        session.permanent = True
         return f(*args, **kwargs)
     return decorated_function
 
