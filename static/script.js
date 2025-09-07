@@ -33,7 +33,7 @@ const CONFIG = {
 // =============================================================================
 
 /**
- * Простая функция для HTTP запросов без агрессивных проверок авторизации
+ * Максимально простая функция для HTTP запросов
  */
 async function makeRequest(url, options = {}) {
     const controller = new AbortController();
@@ -44,12 +44,11 @@ async function makeRequest(url, options = {}) {
             credentials: 'same-origin',
             signal: controller.signal,
             headers: {
-                'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             }
         };
 
-        // Объединяем заголовки правильно
+        // Объединяем опции
         const mergedOptions = {
             ...defaultOptions,
             ...options,
@@ -59,47 +58,38 @@ async function makeRequest(url, options = {}) {
             }
         };
 
+        console.log(`Making request to ${url}`);
         const response = await fetch(url, mergedOptions);
         clearTimeout(timeoutId);
         
-        // Проверяем статус ответа - только для явных ошибок
-        if (!response.ok) {
-            if (response.status === 401) {
-                // Только для эндпоинтов, требующих авторизации
-                if (!url.includes('/login') && !url.includes('/check_auth')) {
-                    console.log('Получен 401, но не обрабатываем как ошибку авторизации');
-                    handleAuthError();
-                    throw new Error('Требуется авторизация');
-                }
-            }
-            
-            if (response.status >= 500) {
-                throw new Error(`Ошибка сервера: ${response.status}`);
-            }
+        console.log(`Response from ${url}: ${response.status}`);
+        
+        // Для 401 - просто перенаправляем на логин (только если это не сам логин)
+        if (response.status === 401 && !url.includes('/login')) {
+            console.log('Got 401, redirecting to login');
+            window.location.href = '/login';
+            throw new Error('Требуется авторизация');
         }
 
         // Определяем тип ответа
         const contentType = response.headers.get('content-type') || '';
-        console.log(`Response from ${url}: ${response.status}, content-type: ${contentType}`);
         
         if (contentType.includes('application/json')) {
-            const jsonData = await response.json();
-            return jsonData;
+            return await response.json();
         } else if (contentType.includes('application/vnd.openxmlformats') || 
                    contentType.includes('application/octet-stream') ||
                    contentType.includes('application/excel')) {
-            return response; // Возвращаем сырой ответ для файлов
+            return response; // Файл
         } else {
-            // Для неожиданных типов - пытаемся получить текст
+            // Пытаемся как текст
             const text = await response.text();
-            console.warn(`Unexpected content type ${contentType} from ${url}:`, text.substring(0, 200));
             
-            // Если это JSON в неправильной упаковке - пытаемся распарсить
+            // Может быть это JSON без правильного content-type?
             try {
-                const jsonData = JSON.parse(text);
-                return jsonData;
+                return JSON.parse(text);
             } catch (e) {
-                throw new Error(`Неожиданный тип ответа: ${contentType}`);
+                console.warn(`Non-JSON response from ${url}:`, text.substring(0, 200));
+                throw new Error(`Неожиданный ответ от сервера`);
             }
         }
         
@@ -148,14 +138,11 @@ function sleep(ms) {
 }
 
 /**
- * Обработка ошибок авторизации - только когда действительно нужно
+ * Простое перенаправление на логин при необходимости
  */
-function handleAuthError() {
-    console.log('Обработка ошибки авторизации');
-    showMessage('Сессия истекла, требуется повторная авторизация', 'warning');
-    setTimeout(() => {
-        window.location.href = '/login';
-    }, 1500); // Уменьшили задержку
+function redirectToLogin() {
+    console.log('Redirecting to login page');
+    window.location.href = '/login';
 }
 
 // =============================================================================
@@ -243,38 +230,38 @@ function setIndicator(indicatorId, isActive) {
 // =============================================================================
 
 /**
- * Проверка статуса авторизации для главной страницы - менее агрессивная
+ * Простая проверка авторизации только при загрузке страницы
  */
 async function checkAuthStatus() {
     try {
         const data = await makeRequest(CONFIG.ENDPOINTS.CHECK_AUTH);
-        if (data && data.authenticated === false) {
-            console.log('Пользователь не авторизован, перенаправление на логин');
-            window.location.href = '/login';
-        } else if (data && data.authenticated === true) {
+        if (data && data.authenticated === true) {
             console.log('Пользователь авторизован:', data.user);
+            if (data.login_time) {
+                console.log('Время входа:', data.login_time);
+            }
         } else {
-            console.warn('Неожиданный ответ при проверке авторизации:', data);
+            console.log('Пользователь не авторизован');
+            window.location.href = '/login';
         }
     } catch (error) {
         console.error('Ошибка проверки авторизации:', error);
-        // Не перенаправляем сразу - даем пользователю возможность работать
-        console.log('Продолжаем работу несмотря на ошибку проверки авторизации');
+        // Если не можем проверить - пусть пользователь попробует работать
     }
 }
 
 /**
- * Проверка авторизации для страницы входа
+ * Проверка для страницы входа - если уже авторизован, перенаправляем
  */
 async function checkAuthStatusForLogin() {
     try {
         const data = await makeRequest(CONFIG.ENDPOINTS.CHECK_AUTH);
-        if (data.authenticated) {
-            console.log('Пользователь уже авторизован');
+        if (data && data.authenticated === true) {
+            console.log('Пользователь уже авторизован, перенаправление на главную');
             window.location.href = '/';
         }
     } catch (error) {
-        console.log('Пользователь не авторизован');
+        console.log('Пользователь не авторизован - показываем форму входа');
     }
 }
 
@@ -626,8 +613,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Обновляем индикаторы
         updateFileIndicators();
         
-        // Запускаем периодическое обновление индикаторов
-        setInterval(updateFileIndicators, CONFIG.UPDATE_INTERVAL);
+        // Убираем периодическое обновление - может вызывать проблемы с авторизацией
+        console.log('Автоматическое обновление индикаторов отключено');
     }
 });
 

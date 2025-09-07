@@ -26,15 +26,15 @@ REESTR_FILE = os.path.join(WORKING_DIR, "reestr.xlsx")
 RESULT_FILE = os.path.join(WORKING_DIR, "exit.xlsx")
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)
+# Фиксированный ключ для стабильности сессий
+app.secret_key = 'excel_processor_secret_key_2024_stable'
 
-# Настройки сессий для стабильной работы
-app.config['SESSION_COOKIE_SECURE'] = False  # HTTP для локальной разработки
-app.config['SESSION_COOKIE_HTTPONLY'] = True  # Защита от XSS
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Защита от CSRF
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # 8 часов вместо 30 дней
-app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Обновляем сессию при каждом запросе
-app.config['SESSION_COOKIE_NAME'] = 'excel_processor_session'  # Уникальное имя куки
+# Минимальные настройки сессий - только самое необходимое
+app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = False  # Упрощаем для отладки
+app.config['SESSION_COOKIE_SAMESITE'] = None
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)  # 24 часа
+app.config['SESSION_REFRESH_EACH_REQUEST'] = False  # Не трогаем сессию без необходимости
 
 # Login credentials
 VALID_USERNAME = "User"
@@ -43,25 +43,18 @@ VALID_PASSWORD = "P@s7w0rd"
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user' not in session:
-            # Проверяем, это AJAX запрос
-            is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
-                      'application/json' in request.headers.get('Accept', ''))
+        # Простая проверка - есть ли пользователь в сессии
+        if 'user' not in session or not session['user']:
+            logger.info(f"No valid session for {request.endpoint}")
             
-            if is_ajax:
-                # Для AJAX запросов возвращаем JSON с кодом 401
-                logger.warning(f"Unauthorized AJAX request to {request.endpoint}")
-                response = jsonify({'status': 'error', 'message': 'Требуется авторизация'})
-                response.status_code = 401
-                response.headers['Content-Type'] = 'application/json; charset=utf-8'
-                return response
-            else:
-                # Для обычных запросов делаем редирект
-                logger.info(f"Unauthorized request to {request.endpoint}, redirecting to login")
-                return redirect(url_for('login'))
+            # Для AJAX запросов (определяем по заголовку)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'status': 'error', 'message': 'Требуется авторизация'}), 401
+            
+            # Для обычных запросов - редирект
+            return redirect(url_for('login'))
         
-        # Обновляем время последней активности
-        session.permanent = True
+        # Пользователь авторизован - продолжаем
         return f(*args, **kwargs)
     return decorated_function
 
@@ -90,48 +83,48 @@ def allowed_file(filename):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        try:
-            data = request.get_json()
-            if not data:
-                logger.warning("Login attempt with empty JSON data")
-                return jsonify({'status': 'error', 'message': 'Некорректные данные'})
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'Некорректные данные'})
+        
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        
+        logger.info(f"Login attempt for user: {username}")
+        
+        # Простая проверка логина и пароля
+        if username == VALID_USERNAME and password == VALID_PASSWORD:
+            # Устанавливаем сессию
+            session.clear()  # Очищаем старую сессию
+            session['user'] = username
+            session['login_time'] = datetime.now().isoformat()
+            session.permanent = True
             
-            username = data.get('username')
-            password = data.get('password')
-            
-            logger.info(f"Login attempt for user: {username}")
-            
-            if username == VALID_USERNAME and password == VALID_PASSWORD:
-                session['user'] = username
-                session.permanent = True
-                logger.info(f"Successful login for user: {username}")
-                
-                response = jsonify({'status': 'success'})
-                response.headers['Content-Type'] = 'application/json; charset=utf-8'
-                return response
-            else:
-                logger.warning(f"Failed login attempt for user: {username}")
-                response = jsonify({'status': 'error', 'message': 'Неверный логин или пароль'})
-                response.headers['Content-Type'] = 'application/json; charset=utf-8'
-                return response
-        except Exception as e:
-            logger.error(f"Error during login: {str(e)}")
-            response = jsonify({'status': 'error', 'message': 'Ошибка сервера'})
-            response.headers['Content-Type'] = 'application/json; charset=utf-8'
-            return response
+            logger.info(f"Successful login for user: {username}")
+            return jsonify({'status': 'success'})
+        else:
+            logger.warning(f"Failed login attempt for user: {username}")
+            return jsonify({'status': 'error', 'message': 'Неверный логин или пароль'})
     
+    # GET запрос - показываем форму входа
     return render_template('login.html')
 
 @app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('user', None)
+    logger.info(f"Logout for user: {session.get('user', 'unknown')}")
+    session.clear()  # Полностью очищаем сессию
     return jsonify({'status': 'success'})
 
 @app.route('/check_auth')
 def check_auth():
-    """Проверить статус авторизации пользователя"""
-    if 'user' in session:
-        return jsonify({'authenticated': True, 'user': session['user']})
+    """Простая проверка статуса авторизации"""
+    user = session.get('user')
+    if user:
+        return jsonify({
+            'authenticated': True, 
+            'user': user,
+            'login_time': session.get('login_time', 'unknown')
+        })
     else:
         return jsonify({'authenticated': False})
 
