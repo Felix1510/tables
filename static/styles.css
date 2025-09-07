@@ -54,10 +54,9 @@ body {
     font-weight: 400;
 }
 
-.logout-btn {
+.logout-btn, .instruction-btn {
     position: absolute;
     top: 15px;
-    right: 20px;
     background: #34495e;
     color: white;
     border: 1px solid #4a5f7a;
@@ -68,7 +67,15 @@ body {
     font-weight: 500;
 }
 
-.logout-btn:hover {
+.logout-btn {
+    right: 20px;
+}
+
+.instruction-btn {
+    right: 120px;
+}
+
+.logout-btn:hover, .instruction-btn:hover {
     background: #4a5f7a;
 }
 
@@ -153,16 +160,16 @@ body {
 
 .status-indicators {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 15px;
 }
 
 .status-indicator {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 8px;
-    padding: 12px;
+    gap: 12px;
+    padding: 10px 15px;
     background: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 3px;
@@ -172,7 +179,7 @@ body {
     font-size: 0.9em;
     font-weight: 500;
     color: #555;
-    text-align: center;
+    flex: 1;
 }
 
 /* Переключатели */
@@ -292,7 +299,7 @@ body {
 }
 
 .status-console {
-    height: 200px;
+    height: 400px;
     overflow-y: auto;
     background: #2d3748;
     border: 1px solid #4a5568;
@@ -578,12 +585,6 @@ body {
     font-size: 0.9em;
 }
 
-/* Компактная консоль */
-.status-console {
-    height: 180px;
-    padding: 8px;
-}
-
 .status-message {
     padding: 3px 6px;
     margin-bottom: 1px;
@@ -593,4 +594,169 @@ body {
 * {
     transition: none !important;
     animation: none !important;
+}
+
+/* =============================================================================
+   МОДАЛЬНОЕ ОКНО С ИНСТРУКЦИЯМИ
+   ============================================================================= */
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal.show {
+    display: block;
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 15px 20px;
+    background: #2c3e50;
+    color: white;
+    border-bottom: 1px solid #34495e;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.4em;
+    font-weight: 600;
+}
+
+.close {
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close:hover {
+    opacity: 0.7;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-body h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.2em;
+}
+
+.instruction-step {
+    display: flex;
+    margin-bottom: 25px;
+    align-items: flex-start;
+    gap: 15px;
+}
+
+.instruction-step.important {
+    background: #fff3cd;
+    padding: 15px;
+    border: 1px solid #ffeaa7;
+    border-radius: 3px;
+}
+
+.step-number {
+    background: #007bff;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    flex-shrink: 0;
+    font-size: 0.9em;
+}
+
+.instruction-step.important .step-number {
+    background: #f39c12;
+}
+
+.step-content h4 {
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 1em;
+}
+
+.step-content p {
+    margin-bottom: 8px;
+    line-height: 1.5;
+    color: #555;
+}
+
+.step-content ul {
+    margin: 8px 0 8px 20px;
+}
+
+.step-content li {
+    margin-bottom: 4px;
+    line-height: 1.4;
+    color: #666;
+}
+
+.step-content em {
+    color: #666;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.step-content strong {
+    color: #2c3e50;
+}
+
+.modal-footer {
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-top: 1px solid #ddd;
+    text-align: right;
+}
+
+/* Адаптивность для модального окна */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        max-height: 80vh;
+    }
+    
+    .modal-header {
+        padding: 12px 15px;
+    }
+    
+    .modal-body {
+        padding: 15px;
+    }
+    
+    .instruction-step {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .step-number {
+        align-self: flex-start;
+    }
 }

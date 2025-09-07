@@ -619,6 +619,49 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =============================================================================
+// ИНСТРУКЦИИ
+// =============================================================================
+
+/**
+ * Показать модальное окно с инструкциями
+ */
+function showInstructions() {
+    const modal = document.getElementById('instructions-modal');
+    if (modal) {
+        modal.classList.add('show');
+        modal.style.display = 'block';
+        console.log('Показано окно инструкций');
+    }
+}
+
+/**
+ * Закрыть модальное окно с инструкциями
+ */
+function closeInstructions() {
+    const modal = document.getElementById('instructions-modal');
+    if (modal) {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        console.log('Закрыто окно инструкций');
+    }
+}
+
+// Закрытие модального окна при клике вне его области
+document.addEventListener('click', (event) => {
+    const modal = document.getElementById('instructions-modal');
+    if (event.target === modal) {
+        closeInstructions();
+    }
+});
+
+// Закрытие модального окна по клавише Escape
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        closeInstructions();
+    }
+});
+
+// =============================================================================
 // ГЛОБАЛЬНЫЕ ФУНКЦИИ (для доступа из HTML)
 // =============================================================================
 
@@ -629,3 +672,5 @@ window.downloadFile = downloadFile;
 window.clearFiles = clearFiles;
 window.showLogs = showLogs;
 window.logout = logout;
+window.showInstructions = showInstructions;
+window.closeInstructions = closeInstructions;
