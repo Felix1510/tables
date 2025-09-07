@@ -3,28 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Группа ТМЦ - Вход</title>
-    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+    <title>Вход в систему - Excel Processor</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
 </head>
 <body>
     <div class="login-container">
-        <h1>Группа ТМЦ</h1>
+        <!-- Заголовок -->
+        <div class="login-header">
+            <h1>🔐 Авторизация</h1>
+            <p>Система обработки Excel файлов</p>
+        </div>
+
+        <!-- Форма входа -->
         <div class="login-form">
-            <form id="loginForm" method="POST" action="/login">
+            <form id="loginForm">
                 <div class="form-group">
-                    <label for="username">Логин:</label>
-                    <input type="text" id="username" name="username" required>
+                    <label for="username">👤 Имя пользователя:</label>
+                    <input type="text" id="username" name="username" required 
+                           placeholder="Введите имя пользователя" autocomplete="username">
                 </div>
+
                 <div class="form-group">
-                    <label for="password">Пароль:</label>
-                    <input type="password" id="password" name="password" required>
+                    <label for="password">🔑 Пароль:</label>
+                    <input type="password" id="password" name="password" required 
+                           placeholder="Введите пароль" autocomplete="current-password">
                 </div>
-                <button type="submit">Войти</button>
+
+                <div class="form-group">
+                    <button type="submit" class="btn" style="width: 100%;">
+                        ✨ Войти в систему
+                    </button>
+                </div>
+
+                <!-- Сообщение об ошибке -->
+                <div id="login-error" class="login-error" style="display: none;"></div>
             </form>
-            <div id="login-error" class="error-message"></div>
         </div>
     </div>
+
+    <!-- Логотип -->
+    <img src="/static/images/inzh.png" alt="Логотип" class="logo-image">
+
+    <!-- JavaScript -->
     <script src="/static/script.js"></script>
+    
+    <!-- Дополнительный скрипт для обработки ошибок на странице входа -->
+    <script>
+        // Показать/скрыть сообщение об ошибке
+        function showLoginError(message) {
+            const errorElement = document.getElementById('login-error');
+            if (message) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+            } else {
+                errorElement.style.display = 'none';
+            }
+        }
+        
+        // Скрываем ошибку при вводе
+        document.getElementById('username').addEventListener('input', () => showLoginError(''));
+        document.getElementById('password').addEventListener('input', () => showLoginError(''));
+    </script>
 </body>
 </html>

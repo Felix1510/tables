@@ -3,82 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Группа ТМЦ</title>
-    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+    <title>Система обработки Excel файлов</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Группа ТМЦ</h1>
-            <div class="header-buttons">
-                <button onclick="showDescription()" class="btn">Описание</button>
-                <button onclick="logout()" class="btn">Выйти</button>
-            </div>
-        </div>
-        
-        <div class="status-console">
-            <div id="status-messages"></div>
-        </div>
+        <!-- Заголовок -->
+        <header class="header">
+            <h1>Система обработки Excel файлов</h1>
+            <p>Автоматическое сопоставление данных из таблиц 1С и Synteka</p>
+            <button onclick="logout()" class="logout-btn">Выйти</button>
+        </header>
 
-        <div class="upload-section">
-            <div class="file-upload">
-                <label for="sklad-file">Загрузить файл из 1С:</label>
-                <input type="file" id="sklad-file" accept=".xlsx,.xls">
-                <button onclick="uploadFile('sklad')" class="btn">Загрузить</button>
-            </div>
-            <div class="file-upload">
-                <label for="reestr-file">Загрузить файл из Сynteka:</label>
-                <input type="file" id="reestr-file" accept=".xlsx,.xls">
-                <button onclick="uploadFile('reestr')" class="btn">Загрузить</button>
-            </div>
-        </div>
+        <!-- Основной контент -->
+        <main class="main-content">
+            
+            <!-- Секция загрузки файлов -->
+            <section class="section upload-section">
+                <div class="section-header">
+                    📁 Загрузка исходных файлов
+                </div>
+                <div class="section-content">
+                    <div class="upload-grid">
+                        <div class="file-upload">
+                            <label for="sklad-file">📊 Файл из системы 1С</label>
+                            <input type="file" id="sklad-file" accept=".xlsx,.xls">
+                            <button onclick="uploadFile('sklad')" class="btn">Загрузить</button>
+                        </div>
+                        <div class="file-upload">
+                            <label for="reestr-file">📋 Файл из системы Synteka</label>
+                            <input type="file" id="reestr-file" accept=".xlsx,.xls">
+                            <button onclick="uploadFile('reestr')" class="btn">Загрузить</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-        <div class="file-status-section">
-            <h3>Файлы на сервере</h3>
-            <div class="status-indicators">
-                <div class="status-indicator">
-                    <div class="toggle-switch" id="sklad-indicator">
-                        <div class="toggle-slider"></div>
-                    </div>
-                    <label>Файл из 1С</label>
+            <!-- Секция индикаторов файлов -->
+            <section class="section file-status-section">
+                <div class="section-header">
+                    📈 Состояние файлов на сервере
                 </div>
-                <div class="status-indicator">
-                    <div class="toggle-switch" id="reestr-indicator">
-                        <div class="toggle-slider"></div>
+                <div class="section-content">
+                    <div class="status-indicators">
+                        <div class="status-indicator">
+                            <div class="toggle-switch" id="sklad-indicator">
+                                <div class="toggle-slider"></div>
+                            </div>
+                            <label>Файл из 1С</label>
+                        </div>
+                        <div class="status-indicator">
+                            <div class="toggle-switch" id="reestr-indicator">
+                                <div class="toggle-slider"></div>
+                            </div>
+                            <label>Файл из Synteka</label>
+                        </div>
+                        <div class="status-indicator">
+                            <div class="toggle-switch" id="result-indicator">
+                                <div class="toggle-slider"></div>
+                            </div>
+                            <label>Файл результат</label>
+                        </div>
                     </div>
-                    <label>Файл из Synteka</label>
                 </div>
-                <div class="status-indicator">
-                    <div class="toggle-switch" id="result-indicator">
-                        <div class="toggle-slider"></div>
-                    </div>
-                    <label>Файл результат</label>
-                </div>
-            </div>
-        </div>
+            </section>
 
-        <div class="process-section">
-            <button onclick="startProcess()" class="btn">Старт</button>
-            <button onclick="downloadFile()" id="download-btn" class="btn" disabled>Скачать результат</button>
-            <button onclick="clearFiles()" class="btn">Очистить файлы</button>
-            <button onclick="showLogs()" class="btn">Показать логи</button>
-        </div>
+            <!-- Секция управления процессом -->
+            <section class="section process-section">
+                <div class="section-header">
+                    ⚙️ Управление процессом обработки
+                </div>
+                <div class="section-content">
+                    <div class="control-grid">
+                        <button onclick="startProcess()" class="btn btn-success">🚀 Запустить обработку</button>
+                        <button onclick="downloadFile()" id="download-btn" class="btn btn-info" disabled>💾 Скачать результат</button>
+                        <button onclick="clearFiles()" class="btn btn-danger">🗑️ Очистить файлы</button>
+                        <button onclick="showLogs()" class="btn">📋 Показать логи</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Секция консоли статуса -->
+            <section class="section status-section">
+                <div class="section-header">
+                    💬 Консоль статуса системы
+                </div>
+                <div class="section-content">
+                    <div class="status-console" id="status-messages">
+                        <!-- Сообщения будут добавляться динамически -->
+                    </div>
+                </div>
+            </section>
+
+        </main>
     </div>
 
-    <!-- Logo image in bottom right corner -->
-    <img src="/static/images/inzh.png" alt="Logo" class="logo-image">
+    <!-- Логотип -->
+    <img src="/static/images/inzh.png" alt="Логотип" class="logo-image">
 
-    <!-- Modal for description -->
-    <div id="description-modal" class="modal">
+    <!-- Модальное окно для описания (если потребуется в будущем) -->
+    <div id="description-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2>Описание сервиса</h2>
-            <p>Сервис предназначен для обработки и сопоставления данных из таблиц Excel.</p>
-            <p>Здесь будет размещено подробное описание функционала сервиса.</p>
+            <p>Сервис предназначен для автоматической обработки и сопоставления данных из таблиц Excel, поступающих из систем 1С и Synteka.</p>
+            <h3>Процесс работы:</h3>
+            <ol>
+                <li>Загрузите файл из системы 1С (sklad.xlsx)</li>
+                <li>Загрузите файл из системы Synteka (reestr.xlsx)</li>
+                <li>Нажмите "Запустить обработку"</li>
+                <li>Дождитесь завершения и скачайте результат</li>
+            </ol>
+            <p>Результирующий файл будет содержать объединенные данные с автоматическим сопоставлением записей.</p>
         </div>
     </div>
 
+    <!-- JavaScript -->
     <script src="/static/script.js"></script>
 </body>
 </html>

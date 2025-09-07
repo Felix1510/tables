@@ -1,580 +1,203 @@
-// Modal functionality
-function showDescription() {
-    document.getElementById('description-modal').style.display = 'block';
-}
+/**
+ * Веб-интерфейс для системы обработки Excel файлов
+ * Полностью переработанная версия с улучшенной архитектурой
+ */
 
-function closeModal() {
-    document.getElementById('description-modal').style.display = 'none';
-}
+// =============================================================================
+// КОНФИГУРАЦИЯ И КОНСТАНТЫ
+// =============================================================================
 
-// Close modal when clicking outside or on close button
-window.onclick = function(event) {
-    const modal = document.getElementById('description-modal');
-    if (event.target == modal) {
-        modal.style.display = 'none';
-    }
-}
+const CONFIG = {
+    ENDPOINTS: {
+        LOGIN: '/login',
+        LOGOUT: '/logout',
+        CHECK_AUTH: '/check_auth',
+        UPLOAD: '/upload',
+        START: '/start',
+        DOWNLOAD: '/download',
+        CLEAR: '/clear',
+        CHECK_FILES: '/check_files',
+        GET_LOGS: '/get_logs'
+    },
+    TIMEOUTS: {
+        REQUEST: 30000,
+        RETRY_DELAY: 1000,
+        REDIRECT_DELAY: 2000
+    },
+    RETRY_ATTEMPTS: 3,
+    UPDATE_INTERVAL: 10000
+};
 
-// Handle close button click
-document.addEventListener('DOMContentLoaded', function() {
-    const closeBtn = document.querySelector('.close');
-    if (closeBtn) {
-        closeBtn.onclick = function() {
-            document.getElementById('description-modal').style.display = 'none';
-        }
-    }
-    
-    // Проверяем авторизацию при загрузке главной страницы
-    if (window.location.pathname === '/' || window.location.pathname === '') {
-        checkAuthStatus();
-    }
-    
-    // Добавляем приветственное сообщение при загрузке страницы (только для главной страницы)
-    if (window.location.pathname === '/' || window.location.pathname === '') {
-        addStatusMessage('Система готова к работе', 'info');
-        // Обновляем индикаторы файлов при загрузке страницы
-        updateFileIndicators();
-        
-        // Периодически обновляем индикаторы каждые 10 секунд
-        setInterval(() => {
-            updateFileIndicators();
-        }, 10000);
-    }
-});
+// =============================================================================
+// УТИЛИТЫ И БАЗОВЫЕ ФУНКЦИИ
+// =============================================================================
 
-// Общая функция для обработки запросов
-async function handleRequest(url, options = {}, retries = 2) {
+/**
+ * Простая функция для HTTP запросов без сложной логики
+ */
+async function makeRequest(url, options = {}) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUTS.REQUEST);
     
     try {
-        const response = await fetch(url, {
-            ...options,
-            credentials: 'same-origin', // Важно для работы с сессиями
+        const defaultOptions = {
+            credentials: 'same-origin',
             signal: controller.signal,
             headers: {
                 'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest', // Указываем, что это AJAX
-                ...options.headers
+                'X-Requested-With': 'XMLHttpRequest'
             }
-        });
+        };
+
+        const response = await fetch(url, { ...defaultOptions, ...options });
+        clearTimeout(timeoutId);
         
+        // Проверяем статус ответа
         if (!response.ok) {
             if (response.status === 401) {
-                // Если сессия истекла, показываем сообщение и перенаправляем на страницу входа
-                console.log('Сессия истекла, требуется повторная авторизация');
-                addStatusMessage('Сессия истекла, требуется повторная авторизация', 'warning');
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
-                return { status: 'error', message: 'Сессия истекла' };
+                handleAuthError();
+                throw new Error('Требуется авторизация');
             }
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
-        // Проверяем тип контента
+
+        // Определяем тип ответа
         const contentType = response.headers.get('content-type') || '';
-        console.log(`Response content-type: ${contentType}, URL: ${url}`);
         
         if (contentType.includes('application/json')) {
-            try {
-                const jsonData = await response.json();
-                // Проверяем, что JSON содержит ожидаемые поля
-                if (jsonData && typeof jsonData === 'object') {
-                    return jsonData;
-                } else {
-                    console.error('Invalid JSON response:', jsonData);
-                    return { status: 'error', message: 'Получен некорректный ответ от сервера' };
-                }
-            } catch (jsonError) {
-                console.error('JSON parse error:', jsonError);
-                return { status: 'error', message: 'Ошибка парсинга JSON ответа' };
-            }
-        } else if (contentType.includes('text/html')) {
-            // HTML ответ - возможно редирект на страницу логина
-            const htmlText = await response.text();
-            console.warn('Received HTML response, possible redirect to login:', htmlText.substring(0, 200));
-            
-            // Более строгая проверка - ищем специфичные элементы страницы логина
-            if ((htmlText.includes('<title>Login</title>') || 
-                 htmlText.includes('id="loginForm"') ||
-                 htmlText.includes('name="username"')) && 
-                 !url.includes('/login')) {
-                console.log('Detected login page redirect, session expired');
-                addStatusMessage('Сессия истекла, требуется повторная авторизация', 'warning');
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
-                return { status: 'error', message: 'Сессия истекла' };
-            } else {
-                // Не редирект на логин - возможно другая проблема
-                console.error('Unexpected HTML response:', htmlText.substring(0, 300));
-                return { 
-                    status: 'error', 
-                    message: `Сервер вернул HTML вместо JSON для ${url}` 
-                };
-            }
+            return await response.json();
         } else if (contentType.includes('application/vnd.openxmlformats') || 
-                   contentType.includes('application/octet-stream') ||
-                   contentType.includes('application/excel')) {
-            // Это файл - возвращаем сам response для обработки как файл
-            console.log('File response detected, returning response object');
-            return response;
+                   contentType.includes('application/octet-stream')) {
+            return response; // Возвращаем сырой ответ для файлов
         } else {
-            // Неожиданный тип контента
-            try {
-                const textResponse = await response.text();
-                console.error('Unexpected content-type:', contentType, 'Response:', textResponse.substring(0, 200));
-                
-                // Пытаемся распарсить как JSON на случай, если content-type неправильный
-                try {
-                    const jsonData = JSON.parse(textResponse);
-                    console.log('Successfully parsed as JSON despite wrong content-type');
-                    return jsonData;
-                } catch (parseError) {
-                    return { 
-                        status: 'error', 
-                        message: `Неизвестный тип ответа: ${contentType || 'не указан'}` 
-                    };
-                }
-            } catch (textError) {
-                return { 
-                    status: 'error', 
-                    message: `Ошибка чтения ответа сервера: ${textError.message}` 
-                };
-            }
+            const text = await response.text();
+            throw new Error(`Неожиданный тип ответа: ${contentType}`);
         }
+        
     } catch (error) {
         clearTimeout(timeoutId);
         
-        // Если это таймаут или сетевая ошибка, пробуем повторить
-        if ((error.name === 'AbortError' || error.name === 'TypeError') && retries > 0) {
-            console.log(`Запрос ${url} неудачен, повторяем... (осталось попыток: ${retries})`);
-            addStatusMessage(`Повторяем запрос... (осталось попыток: ${retries})`, 'warning');
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Пауза 1 секунда
-            return handleRequest(url, options, retries - 1);
-        }
-        
-        console.error('Request failed:', error);
-        
-        // Возвращаем структурированную ошибку вместо выброса исключения
         if (error.name === 'AbortError') {
-            return { status: 'error', message: 'Запрос превысил время ожидания (30 сек)' };
-        } else {
-            return { status: 'error', message: `Ошибка сети: ${error.message}` };
+            throw new Error('Превышено время ожидания запроса');
         }
-    } finally {
-        clearTimeout(timeoutId);
+        throw error;
     }
 }
 
-// Check if already logged in on login page
-if (window.location.pathname === '/login') {
-    checkAuthStatusForLogin();
-}
-
-// Check authentication status for login page
-async function checkAuthStatusForLogin() {
-    try {
-        const data = await handleRequest('/check_auth');
-        if (data.authenticated) {
-            // Если уже авторизован, перенаправляем на главную страницу
-            console.log('Пользователь уже авторизован, перенаправление на главную');
-            window.location.href = '/';
-        }
-    } catch (error) {
-        console.log('Пользователь не авторизован, остаемся на странице входа');
-    }
-}
-
-// Login form handling
-const loginForm = document.getElementById('loginForm');
-if (loginForm) {
-    loginForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-
-        try {
-            console.log('Attempting login for user:', username);
-            const data = await handleRequest('/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            console.log('Login response:', data);
-
-            if (data && data.status === 'success') {
-                console.log('Login successful, redirecting to main page');
-                document.getElementById('login-error').textContent = '';
-                window.location.href = '/';
-            } else if (data && data.status === 'error') {
-                console.log('Login failed:', data.message);
-                document.getElementById('login-error').textContent = data.message;
-            } else {
-                console.error('Unexpected login response:', data);
-                document.getElementById('login-error').textContent = 'Неожиданный ответ сервера';
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            document.getElementById('login-error').textContent = 'Ошибка при входе: ' + error.message;
-        }
-    });
-}
-
-// Check authentication status
-async function checkAuthStatus() {
-    try {
-        const data = await handleRequest('/check_auth');
-        if (!data.authenticated) {
-            // Если не авторизован, перенаправляем на страницу входа
-            window.location.href = '/login';
-        } else {
-            // Если авторизован, можно добавить приветствие с именем пользователя
-            console.log('Пользователь авторизован:', data.user);
-        }
-    } catch (error) {
-        console.error('Auth check error:', error);
-        // В случае ошибки проверки, перенаправляем на страницу входа
-        window.location.href = '/login';
-    }
-}
-
-// Logout functionality
-async function logout() {
-    try {
-        // Сначала очищаем файлы
-        addStatusMessage('Очистка файлов перед выходом...', 'info');
-        await handleRequest('/clear', { method: 'POST' });
-        
-        // Затем выходим из системы
-        await handleRequest('/logout', { method: 'POST' });
-        addStatusMessage('Выход выполнен успешно', 'info');
-        
-        // Небольшая задержка перед перенаправлением для показа сообщения
-        setTimeout(() => {
-            window.location.href = '/login';
-        }, 1000);
-    } catch (error) {
-        console.error('Logout error:', error);
-        addStatusMessage('Ошибка при выходе', 'error');
-        // Даже при ошибке перенаправляем на страницу входа
-        setTimeout(() => {
-            window.location.href = '/login';
-        }, 2000);
-    }
-}
-
-// File upload functionality
-async function uploadFile(type) {
-    const fileInput = document.getElementById(`${type}-file`);
-    const file = fileInput.files[0];
+/**
+ * Функция с повторными попытками
+ */
+async function makeRequestWithRetry(url, options = {}, maxRetries = CONFIG.RETRY_ATTEMPTS) {
+    let lastError;
     
-    if (!file) {
-        addStatusMessage('Пожалуйста, выберите файл', 'error');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('type', type);
-
-    try {
-        const data = await handleRequest('/upload', {
-            method: 'POST',
-            body: formData
-        });
-        if (data && data.message) {
-            addStatusMessage(data.message, data.status);
-            // Обновляем индикаторы после загрузки файла
-            if (data.status === 'success') {
-                updateFileIndicators();
-            }
-        } else if (data && data.status === 'error') {
-            addStatusMessage(data.message || 'Ошибка при загрузке файла', 'error');
-        } else {
-            addStatusMessage('Получен пустой ответ от сервера при загрузке файла', 'error');
-        }
-    } catch (error) {
-        addStatusMessage('Ошибка при загрузке файла', 'error');
-    }
-}
-
-// Process start functionality
-async function startProcess() {
-    try {
-        const data = await handleRequest('/start', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        if (data && data.message) {
-            addStatusMessage(data.message, data.status);
-        } else if (data && data.status === 'error') {
-            addStatusMessage(data.message || 'Ошибка при запуске процесса', 'error');
-        } else {
-            addStatusMessage('Получен пустой ответ от сервера при запуске процесса', 'error');
-        }
-        
-        if (data && data.status === 'success') {
-            checkExitFile();
-        }
-    } catch (error) {
-        addStatusMessage('Ошибка при запуске процесса', 'error');
-    }
-}
-
-// File download functionality
-async function downloadFile() {
-    try {
-        addStatusMessage('Проверяем наличие файла...', 'info');
-        
-        // Сначала проверяем, что файл существует с повторными попытками
-        let fileExists = false;
-        let attempts = 0;
-        const maxAttempts = 3;
-        
-        while (!fileExists && attempts < maxAttempts) {
-            attempts++;
-            console.log(`Checking file existence, attempt ${attempts}/${maxAttempts}`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`Запрос к ${url}, попытка ${attempt}/${maxRetries}`);
+            return await makeRequest(url, options);
+        } catch (error) {
+            lastError = error;
+            console.warn(`Попытка ${attempt} неудачна:`, error.message);
             
-            const checkData = await handleRequest('/check_files');
-            console.log('File check result:', checkData);
-            
-            if (checkData && checkData.exit_exists === true) {
-                fileExists = true;
-                console.log('File confirmed to exist');
+            if (attempt < maxRetries && (error.message.includes('Failed to fetch') || 
+                                       error.message.includes('Превышено время'))) {
+                showMessage(`Повторяем запрос... (${attempt}/${maxRetries})`, 'warning');
+                await sleep(CONFIG.TIMEOUTS.RETRY_DELAY);
+            } else {
                 break;
-            } else if (checkData && checkData.status === 'error') {
-                addStatusMessage(`Ошибка проверки файла: ${checkData.message}`, 'error');
-                return;
-            } else {
-                console.log(`File not found on attempt ${attempts}, waiting...`);
-                if (attempts < maxAttempts) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
             }
         }
-        
-        if (!fileExists) {
-            addStatusMessage('Файл не найден на сервере', 'error');
-            // Обновляем индикаторы
-            updateFileIndicators();
-            return;
-        }
-        
-        addStatusMessage('Начинаем скачивание файла...', 'info');
-        
-        // Используем прямой fetch для скачивания файла с повторными попытками
-        let downloadSuccess = false;
-        let downloadAttempts = 0;
-        const maxDownloadAttempts = 3;
-        
-        while (!downloadSuccess && downloadAttempts < maxDownloadAttempts) {
-            downloadAttempts++;
-            console.log(`Download attempt ${downloadAttempts}/${maxDownloadAttempts}`);
-            
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000);
-            
-            try {
-                const response = await fetch('/download', {
-                    credentials: 'same-origin',
-                    signal: controller.signal,
-                    cache: 'no-cache', // Отключаем кэширование
-                    headers: {
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache'
-                    }
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    const contentType = response.headers.get('content-type') || '';
-                    if (contentType.includes('application/json')) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Ошибка при скачивании файла');
-                    } else {
-                        throw new Error(`Ошибка сервера: ${response.status} ${response.statusText}`);
-                    }
-                }
-                
-                // Создаем blob и скачиваем файл
-                const blob = await response.blob();
-                if (blob.size === 0) {
-                    throw new Error('Получен пустой файл');
-                }
-                
-                console.log(`Downloaded blob size: ${blob.size} bytes`);
-                
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.style.display = 'none';
-                link.href = url;
-                link.download = 'result.xlsx';
-                document.body.appendChild(link);
-                link.click();
-                
-                // Очищаем ресурсы
-                setTimeout(() => {
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(link);
-                }, 100);
-                
-                addStatusMessage('Файл успешно скачан', 'success');
-                downloadSuccess = true;
-                
-            } catch (error) {
-                clearTimeout(timeoutId);
-                console.error(`Download attempt ${downloadAttempts} failed:`, error);
-                
-                if (downloadAttempts >= maxDownloadAttempts) {
-                    if (error.name === 'AbortError') {
-                        addStatusMessage('Скачивание прервано по таймауту', 'error');
-                    } else {
-                        addStatusMessage('Ошибка при скачивании файла: ' + error.message, 'error');
-                    }
-                } else {
-                    addStatusMessage(`Повторяем скачивание... (попытка ${downloadAttempts + 1}/${maxDownloadAttempts})`, 'warning');
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
-        }
-        
-    } catch (error) {
-        console.error('Download function error:', error);
-        addStatusMessage('Ошибка при скачивании: ' + error.message, 'error');
     }
-}
-
-// Clear files functionality
-async function clearFiles() {
-    try {
-        const data = await handleRequest('/clear', {
-            method: 'POST'
-        });
-        if (data && data.message) {
-            addStatusMessage(data.message, data.status);
-            // Обновляем индикаторы после очистки файлов
-            updateFileIndicators();
-        } else if (data && data.status === 'error') {
-            addStatusMessage(data.message || 'Ошибка при очистке файлов', 'error');
-        } else {
-            addStatusMessage('Получен пустой ответ от сервера при очистке файлов', 'error');
-        }
-        document.getElementById('download-btn').disabled = true;
-    } catch (error) {
-        addStatusMessage('Ошибка при очистке файлов', 'error');
-    }
-}
-
-// Show logs functionality
-async function showLogs() {
-    try {
-        const data = await handleRequest('/get_logs');
-        if (data && data.logs) {
-            addStatusMessage('=== ПОСЛЕДНИЕ ЗАПИСИ ЛОГОВ ===', 'info');
-            data.logs.forEach(line => {
-                if (line.trim()) {
-                    const logType = line.includes('ERROR') ? 'error' : 
-                                   line.includes('WARNING') ? 'warning' : 'info';
-                    addStatusMessage(line.trim(), logType);
-                }
-            });
-            addStatusMessage('=== КОНЕЦ ЛОГОВ ===', 'info');
-        } else {
-            addStatusMessage('Логи не найдены', 'warning');
-        }
-    } catch (error) {
-        addStatusMessage('Ошибка при получении логов: ' + error.message, 'error');
-    }
-}
-
-// Check for result file
-async function checkExitFile() {
-    let attempts = 0;
-    const maxAttempts = 60; // 2 минуты максимум (увеличено время)
     
-    const checkInterval = setInterval(async () => {
-        try {
-            const data = await handleRequest('/check_files');
-            
-            // Добавим отладочную информацию
-            console.log(`Проверка файлов (попытка ${attempts + 1}/${maxAttempts}):`, data);
-            
-            if (data.exit_exists) {
-                document.getElementById('download-btn').disabled = false;
-                addStatusMessage('Преобразование закончено, таблица доступна для скачивания', 'success');
-                // Обновляем индикаторы после завершения обработки
-                updateFileIndicators();
-                clearInterval(checkInterval);
-                return;
-            }
-            
-            // Показываем прогресс каждые 10 попыток
-            if (attempts % 10 === 0 && attempts > 0) {
-                addStatusMessage(`Обработка файлов... (${attempts * 2} секунд)`, 'info');
-            }
-            
-            attempts++;
-            if (attempts >= maxAttempts) {
-                clearInterval(checkInterval);
-                addStatusMessage(`Превышено время ожидания результата. Проверьте логи. Рабочая директория: ${data.working_dir || 'неизвестно'}`, 'error');
-                
-                // Показываем дополнительную диагностическую информацию
-                if (data.sklad_exists === false || data.reestr_exists === false) {
-                    addStatusMessage('Входные файлы не найдены! Проверьте загрузку файлов.', 'error');
-                }
-            }
-        } catch (error) {
-            console.error('Error checking files:', error);
-            clearInterval(checkInterval);
-            addStatusMessage('Ошибка при проверке файлов: ' + error.message, 'error');
-        }
-    }, 2000);
+    throw lastError;
 }
 
-// File indicators functionality
+/**
+ * Утилита для задержки
+ */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Обработка ошибок авторизации
+ */
+function handleAuthError() {
+    showMessage('Сессия истекла, требуется повторная авторизация', 'warning');
+    setTimeout(() => {
+        window.location.href = '/login';
+    }, CONFIG.TIMEOUTS.REDIRECT_DELAY);
+}
+
+// =============================================================================
+// СИСТЕМА СООБЩЕНИЙ
+// =============================================================================
+
+/**
+ * Показать сообщение в консоли статуса
+ */
+function showMessage(message, type = 'info') {
+    if (!message || message.trim() === '') {
+        message = 'Получено пустое сообщение';
+        type = 'error';
+    }
+    
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('ru-RU', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+    });
+    
+    const messageElement = document.createElement('div');
+    messageElement.className = `status-message ${type}`;
+    messageElement.innerHTML = `
+        <span class="message-time">[${timeString}]</span>
+        <span class="message-text">${message}</span>
+    `;
+    
+    const statusDiv = document.getElementById('status-messages');
+    if (statusDiv) {
+        statusDiv.insertBefore(messageElement, statusDiv.firstChild);
+        statusDiv.scrollTop = 0;
+        console.log(`[${type.toUpperCase()}] ${timeString}: ${message}`);
+    }
+}
+
+// =============================================================================
+// ИНДИКАТОРЫ ФАЙЛОВ
+// =============================================================================
+
+/**
+ * Обновить индикаторы состояния файлов
+ */
 async function updateFileIndicators() {
     try {
-        console.log('Updating file indicators...');
-        const data = await handleRequest('/check_files');
+        console.log('Обновление индикаторов файлов...');
+        const data = await makeRequest(CONFIG.ENDPOINTS.CHECK_FILES);
         
-        console.log('File check response:', data);
+        console.log('Состояние файлов:', data);
         
-        // Проверяем, что получили корректный ответ
-        if (data && typeof data === 'object' && !data.status) {
-            // Обновляем индикаторы
-            updateIndicator('sklad-indicator', data.sklad_exists === true);
-            updateIndicator('reestr-indicator', data.reestr_exists === true);
-            updateIndicator('result-indicator', data.exit_exists === true);
-            
-            // Обновляем состояние кнопки скачивания
-            const downloadBtn = document.getElementById('download-btn');
-            if (downloadBtn) {
-                downloadBtn.disabled = !(data.exit_exists === true);
-            }
-            
-            console.log(`Indicators updated: sklad=${data.sklad_exists}, reestr=${data.reestr_exists}, result=${data.exit_exists}`);
-        } else if (data && data.status === 'error') {
-            console.warn('Error in check_files response:', data.message);
-            // При ошибке оставляем индикаторы в текущем состоянии
-        } else {
-            console.warn('Unexpected response from check_files:', data);
+        // Обновляем индикаторы
+        setIndicator('sklad-indicator', data.sklad_exists === true);
+        setIndicator('reestr-indicator', data.reestr_exists === true);
+        setIndicator('result-indicator', data.exit_exists === true);
+        
+        // Обновляем кнопку скачивания
+        const downloadBtn = document.getElementById('download-btn');
+        if (downloadBtn) {
+            downloadBtn.disabled = !(data.exit_exists === true);
         }
         
     } catch (error) {
-        console.error('Error updating file indicators:', error);
-        // При ошибке не показываем сообщение пользователю, чтобы не спамить
+        console.error('Ошибка обновления индикаторов:', error);
+        // Не показываем ошибку пользователю для фоновых обновлений
     }
 }
 
-function updateIndicator(indicatorId, isActive) {
+/**
+ * Установить состояние индикатора
+ */
+function setIndicator(indicatorId, isActive) {
     const indicator = document.getElementById(indicatorId);
     if (indicator) {
         if (isActive) {
@@ -585,51 +208,400 @@ function updateIndicator(indicatorId, isActive) {
     }
 }
 
-// Status message functionality
-function addStatusMessage(message, type = 'info') {
-    // Проверяем, что сообщение не пустое
-    if (!message || message.trim() === '') {
-        message = 'Получено пустое сообщение';
-        type = 'error';
-    }
-    
-    const statusDiv = document.getElementById('status-messages');
-    if (statusDiv) {
-        // Создаем элемент сообщения
-        const messageElement = document.createElement('div');
-        messageElement.className = `status-message ${type}`;
-        
-        // Получаем текущее время без даты
-        const now = new Date();
-        const timeString = now.toLocaleTimeString('ru-RU', { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-        });
-        
-        // Создаем содержимое с временной меткой
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'message-time';
-        timeSpan.textContent = `[${timeString}] `;
-        
-        const messageSpan = document.createElement('span');
-        messageSpan.className = 'message-text';
-        messageSpan.textContent = message;
-        
-        messageElement.appendChild(timeSpan);
-        messageElement.appendChild(messageSpan);
-        
-        // Добавляем сообщение в начало списка
-        if (statusDiv.firstChild) {
-            statusDiv.insertBefore(messageElement, statusDiv.firstChild);
+// =============================================================================
+// АВТОРИЗАЦИЯ
+// =============================================================================
+
+/**
+ * Проверка статуса авторизации для главной страницы
+ */
+async function checkAuthStatus() {
+    try {
+        const data = await makeRequest(CONFIG.ENDPOINTS.CHECK_AUTH);
+        if (!data.authenticated) {
+            window.location.href = '/login';
         } else {
-            statusDiv.appendChild(messageElement);
+            console.log('Пользователь авторизован:', data.user);
         }
-        
-        // Скроллим к началу (к новому сообщению)
-        statusDiv.scrollTop = 0;
-        
-        // Логируем сообщение в консоль для отладки
-        console.log(`Status message [${type}] ${timeString}: ${message}`);
+    } catch (error) {
+        console.error('Ошибка проверки авторизации:', error);
+        window.location.href = '/login';
     }
 }
+
+/**
+ * Проверка авторизации для страницы входа
+ */
+async function checkAuthStatusForLogin() {
+    try {
+        const data = await makeRequest(CONFIG.ENDPOINTS.CHECK_AUTH);
+        if (data.authenticated) {
+            console.log('Пользователь уже авторизован');
+            window.location.href = '/';
+        }
+    } catch (error) {
+        console.log('Пользователь не авторизован');
+    }
+}
+
+/**
+ * Выход из системы
+ */
+async function logout() {
+    try {
+        showMessage('Выполняется выход из системы...', 'info');
+        
+        // Сначала очищаем файлы
+        try {
+            await makeRequest(CONFIG.ENDPOINTS.CLEAR, { method: 'POST' });
+        } catch (clearError) {
+            console.warn('Не удалось очистить файлы при выходе:', clearError);
+        }
+        
+        // Затем выходим
+        await makeRequest(CONFIG.ENDPOINTS.LOGOUT, { method: 'POST' });
+        showMessage('Выход выполнен успешно', 'success');
+        
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Ошибка при выходе:', error);
+        showMessage('Ошибка при выходе', 'error');
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 2000);
+    }
+}
+
+// =============================================================================
+// ЗАГРУЗКА ФАЙЛОВ
+// =============================================================================
+
+/**
+ * Загрузить файл на сервер
+ */
+async function uploadFile(type) {
+    const fileInput = document.getElementById(`${type}-file`);
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showMessage('Пожалуйста, выберите файл', 'warning');
+        return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+        showMessage('Поддерживаются только файлы .xlsx', 'error');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    
+    try {
+        showMessage(`Загружаем ${file.name}...`, 'info');
+        
+        const data = await makeRequestWithRetry(CONFIG.ENDPOINTS.UPLOAD, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (data.status === 'success') {
+            showMessage(data.message, 'success');
+            fileInput.value = ''; // Очищаем input
+            await updateFileIndicators(); // Обновляем индикаторы
+        } else {
+            showMessage(data.message || 'Ошибка загрузки файла', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Ошибка загрузки файла:', error);
+        showMessage(`Ошибка загрузки файла: ${error.message}`, 'error');
+    }
+}
+
+// =============================================================================
+// ОБРАБОТКА ДАННЫХ
+// =============================================================================
+
+/**
+ * Запустить процесс обработки
+ */
+async function startProcess() {
+    try {
+        showMessage('Запускаем процесс обработки...', 'info');
+        
+        const data = await makeRequest(CONFIG.ENDPOINTS.START, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (data.status === 'success') {
+            showMessage(data.message, 'success');
+            startFileCheck(); // Начинаем проверку результата
+        } else {
+            showMessage(data.message || 'Ошибка запуска процесса', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Ошибка запуска процесса:', error);
+        showMessage(`Ошибка запуска процесса: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Проверка готовности результата
+ */
+function startFileCheck() {
+    let attempts = 0;
+    const maxAttempts = 60; // 2 минуты максимум
+    
+    const checkInterval = setInterval(async () => {
+        attempts++;
+        
+        try {
+            const data = await makeRequest(CONFIG.ENDPOINTS.CHECK_FILES);
+            
+            if (data.exit_exists) {
+                showMessage('Обработка завершена! Файл готов для скачивания', 'success');
+                await updateFileIndicators();
+                clearInterval(checkInterval);
+                return;
+            }
+            
+            // Показываем прогресс каждые 10 попыток
+            if (attempts % 10 === 0) {
+                showMessage(`Обработка продолжается... (${attempts * 2} сек)`, 'info');
+            }
+            
+            if (attempts >= maxAttempts) {
+                showMessage('Превышено время ожидания результата. Проверьте логи.', 'error');
+                clearInterval(checkInterval);
+            }
+            
+        } catch (error) {
+            console.error('Ошибка проверки файлов:', error);
+            if (attempts >= 5) { // Прекращаем после 5 неудачных попыток
+                showMessage('Ошибка при проверке статуса обработки', 'error');
+                clearInterval(checkInterval);
+            }
+        }
+    }, 2000);
+}
+
+// =============================================================================
+// СКАЧИВАНИЕ ФАЙЛОВ
+// =============================================================================
+
+/**
+ * Скачать результирующий файл
+ */
+async function downloadFile() {
+    try {
+        showMessage('Подготовка файла к скачиванию...', 'info');
+        
+        // Проверяем наличие файла
+        const checkData = await makeRequest(CONFIG.ENDPOINTS.CHECK_FILES);
+        if (!checkData.exit_exists) {
+            showMessage('Файл результата не найден', 'error');
+            await updateFileIndicators();
+            return;
+        }
+        
+        showMessage('Скачиваем файл...', 'info');
+        
+        // Скачиваем файл
+        const response = await makeRequest(CONFIG.ENDPOINTS.DOWNLOAD);
+        
+        // response здесь - это Response объект для файла
+        const blob = await response.blob();
+        
+        if (blob.size === 0) {
+            showMessage('Получен пустой файл', 'error');
+            return;
+        }
+        
+        // Создаем ссылку для скачивания
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'result.xlsx';
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Освобождаем память
+        setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+        }, 100);
+        
+        showMessage('Файл успешно скачан', 'success');
+        
+    } catch (error) {
+        console.error('Ошибка скачивания:', error);
+        showMessage(`Ошибка скачивания: ${error.message}`, 'error');
+    }
+}
+
+// =============================================================================
+// УПРАВЛЕНИЕ ФАЙЛАМИ
+// =============================================================================
+
+/**
+ * Очистить все файлы на сервере
+ */
+async function clearFiles() {
+    try {
+        showMessage('Очищаем файлы на сервере...', 'info');
+        
+        const data = await makeRequestWithRetry(CONFIG.ENDPOINTS.CLEAR, {
+            method: 'POST'
+        });
+        
+        if (data.status === 'success') {
+            showMessage(data.message, 'success');
+        } else {
+            showMessage(data.message || 'Ошибка очистки файлов', 'error');
+        }
+        
+        await updateFileIndicators();
+        
+    } catch (error) {
+        console.error('Ошибка очистки файлов:', error);
+        showMessage(`Ошибка очистки файлов: ${error.message}`, 'error');
+    }
+}
+
+// =============================================================================
+// ЛОГИ
+// =============================================================================
+
+/**
+ * Показать логи системы
+ */
+async function showLogs() {
+    try {
+        const data = await makeRequest(CONFIG.ENDPOINTS.GET_LOGS);
+        
+        if (data && data.logs) {
+            showMessage('=== ЛОГИ СИСТЕМЫ ===', 'info');
+            data.logs.forEach(line => {
+                if (line.trim()) {
+                    const logType = line.includes('ERROR') ? 'error' : 
+                                   line.includes('WARNING') ? 'warning' : 'info';
+                    showMessage(line.trim(), logType);
+                }
+            });
+            showMessage('=== КОНЕЦ ЛОГОВ ===', 'info');
+        } else {
+            showMessage('Логи не найдены', 'warning');
+        }
+        
+    } catch (error) {
+        console.error('Ошибка получения логов:', error);
+        showMessage(`Ошибка получения логов: ${error.message}`, 'error');
+    }
+}
+
+// =============================================================================
+// ИНИЦИАЛИЗАЦИЯ
+// =============================================================================
+
+/**
+ * Обработка формы входа
+ */
+function initLoginForm() {
+    const loginForm = document.getElementById('loginForm');
+    if (!loginForm) return;
+    
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const errorElement = document.getElementById('login-error');
+        
+        if (!username || !password) {
+            errorElement.textContent = 'Введите логин и пароль';
+            return;
+        }
+        
+        try {
+            console.log('Попытка входа для пользователя:', username);
+            
+            const data = await makeRequest(CONFIG.ENDPOINTS.LOGIN, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+            
+            console.log('Ответ сервера:', data);
+            
+            if (data.status === 'success') {
+                console.log('Успешный вход');
+                errorElement.textContent = '';
+                window.location.href = '/';
+            } else {
+                console.log('Неудачный вход:', data.message);
+                errorElement.textContent = data.message || 'Ошибка входа';
+            }
+            
+        } catch (error) {
+            console.error('Ошибка входа:', error);
+            errorElement.textContent = `Ошибка входа: ${error.message}`;
+        }
+    });
+}
+
+/**
+ * Инициализация приложения
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Инициализация веб-интерфейса...');
+    
+    const currentPath = window.location.pathname;
+    
+    if (currentPath === '/login') {
+        // Страница входа
+        console.log('Инициализация страницы входа');
+        checkAuthStatusForLogin();
+        initLoginForm();
+        
+    } else if (currentPath === '/' || currentPath === '') {
+        // Главная страница
+        console.log('Инициализация главной страницы');
+        checkAuthStatus();
+        
+        // Показываем приветствие
+        showMessage('Система готова к работе', 'info');
+        
+        // Обновляем индикаторы
+        updateFileIndicators();
+        
+        // Запускаем периодическое обновление индикаторов
+        setInterval(updateFileIndicators, CONFIG.UPDATE_INTERVAL);
+    }
+});
+
+// =============================================================================
+// ГЛОБАЛЬНЫЕ ФУНКЦИИ (для доступа из HTML)
+// =============================================================================
+
+// Экспортируем функции в глобальную область видимости
+window.uploadFile = uploadFile;
+window.startProcess = startProcess;
+window.downloadFile = downloadFile;
+window.clearFiles = clearFiles;
+window.showLogs = showLogs;
+window.logout = logout;
